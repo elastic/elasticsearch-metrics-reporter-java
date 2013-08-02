@@ -180,5 +180,5 @@ This is how the serialized metrics looks like in elasticsearch
 
 ## Next steps
 
-* Integration with Kibana would be awesoe
+* Integration with Kibana would be awesome
 * Releasing an accompanying dashboard application, which shows some of the realtime monitoring features using percolations
