@@ -27,9 +27,6 @@ import static org.elasticsearch.metrics.MetricsElasticsearchModule.BulkIndexOper
 
 public class ElasticsearchReporter extends ScheduledReporter {
 
-    private final String host;
-    private final int port;
-
     public static Builder forRegistry(MetricRegistry registry) {
         return new Builder(registry);
     }
@@ -41,13 +38,13 @@ public class ElasticsearchReporter extends ScheduledReporter {
         private TimeUnit rateUnit;
         private TimeUnit durationUnit;
         private MetricFilter filter;
-        private String host = "localhost";
-        private int port = 9200;
+        private String[] hosts = new String[]{ "localhost:9200" };
         private String index = "metrics";
         private String indexDateFormat = "yyyy-MM";
         private int bulkSize = 2500;
         private String percolateMetricsRegex;
         private Notifier percolateNotifier;
+        private int timeout = 1000;
 
         private Builder(MetricRegistry registry) {
             this.registry = registry;
@@ -83,8 +80,13 @@ public class ElasticsearchReporter extends ScheduledReporter {
             return this;
         }
 
-        public Builder host(String host) {
-            this.host = host;
+        public Builder hosts(String ... hosts) {
+            this.hosts = hosts;
+            return this;
+        }
+
+        public Builder timeout(int timeout) {
+            this.timeout = timeout;
             return this;
         }
 
@@ -95,11 +97,6 @@ public class ElasticsearchReporter extends ScheduledReporter {
 
         public Builder indexDateFormat(String indexDateFormat) {
             this.indexDateFormat = indexDateFormat;
-            return this;
-        }
-
-        public Builder port(int port) {
-            this.port = port;
             return this;
         }
 
@@ -120,8 +117,8 @@ public class ElasticsearchReporter extends ScheduledReporter {
 
         public ElasticsearchReporter build() throws IOException {
             return new ElasticsearchReporter(registry,
-                    host,
-                    port,
+                    hosts,
+                    timeout,
                     index,
                     indexDateFormat,
                     bulkSize,
@@ -137,29 +134,30 @@ public class ElasticsearchReporter extends ScheduledReporter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticsearchReporter.class);
 
+    private final String[] hosts;
     private final Clock clock;
     private final String prefix;
-    private final URL url;
     private final String index;
     private final int bulkSize;
+    private final int timeout;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ObjectWriter writer;
     private Pattern percolateMetricsRegex;
     private Notifier notifier;
     private String currentIndexName;
     private SimpleDateFormat indexDateFormat = null;
+    private boolean checkedForIndexTemplate = false;
 
-    public ElasticsearchReporter(MetricRegistry registry, String host,
-                                 int port, String index, String indexDateFormat, int bulkSize, Clock clock, String prefix, TimeUnit rateUnit, TimeUnit durationUnit,
+    public ElasticsearchReporter(MetricRegistry registry, String[] hosts, int timeout,
+                                 String index, String indexDateFormat, int bulkSize, Clock clock, String prefix, TimeUnit rateUnit, TimeUnit durationUnit,
                                  MetricFilter filter, String percolateMetricsRegex, Notifier percolateNotifier) throws MalformedURLException {
         super(registry, "elasticsearch-reporter", filter, rateUnit, durationUnit);
-        this.host = host;
-        this.port = port;
-        this.url = new URL("http://" + host + ":" + port  + "/_bulk" );
+        this.hosts = hosts;
         this.index = index;
         this.bulkSize = bulkSize;
         this.clock = clock;
         this.prefix = prefix;
+        this.timeout = timeout;
         if (indexDateFormat != null && indexDateFormat.length() > 0) {
             this.indexDateFormat = new SimpleDateFormat(indexDateFormat);
         }
@@ -183,7 +181,9 @@ public class ElasticsearchReporter extends ScheduledReporter {
                        SortedMap<String, Histogram> histograms,
                        SortedMap<String, Meter> meters,
                        SortedMap<String, Timer> timers) {
-
+        if (!checkedForIndexTemplate) {
+            checkForIndexTemplate();
+        }
         final long timestamp = clock.getTime() / 1000;
 
         currentIndexName = index;
@@ -192,7 +192,12 @@ public class ElasticsearchReporter extends ScheduledReporter {
         }
 
         try {
-            HttpURLConnection connection = getUrlConnection(url);
+            HttpURLConnection connection = openConnection("/_bulk", "POST");
+            if (connection == null) {
+                LOGGER.error("Could not connect to any configured elasticsearch instances: {}", Arrays.asList(hosts));
+                return;
+            }
+
             List<JsonMetric> percolationMetrics = new ArrayList<JsonMetric>();
             AtomicInteger entriesWritten = new AtomicInteger(0);
 
@@ -244,8 +249,11 @@ public class ElasticsearchReporter extends ScheduledReporter {
     }
 
     private List<String> getPercolationMatches(JsonMetric jsonMetric) throws IOException {
-        URL percolationUrl = new URL("http://" + host + ":" + port  + "/" + currentIndexName + "/" + jsonMetric.type() + "/_percolate");
-        HttpURLConnection connection = getUrlConnection(percolationUrl);
+        HttpURLConnection connection = openConnection("/" + currentIndexName + "/" + jsonMetric.type() + "/_percolate", "POST");
+        if (connection == null) {
+            LOGGER.error("Could not connect to any configured elasticsearch instances for percolation: {}", Arrays.asList(hosts));
+            return Collections.EMPTY_LIST;
+        }
 
         Map<String, Object> data = new HashMap<String, Object>(1);
         data.put("doc", jsonMetric);
@@ -291,7 +299,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
     private HttpURLConnection createNewConnectionIfBulkSizeReached(HttpURLConnection connection, int entriesWritten) throws IOException {
         if (entriesWritten % bulkSize == 0) {
             closeConnection(connection);
-            return getUrlConnection(url);
+            return openConnection("/_bulk", "POST");
         }
 
         return connection;
@@ -310,22 +318,36 @@ public class ElasticsearchReporter extends ScheduledReporter {
         return MetricRegistry.name(prefix, components);
     }
 
-    public HttpURLConnection getUrlConnection(URL url) throws IOException {
-        HttpURLConnection connection = ( HttpURLConnection ) url.openConnection();
-        connection.setRequestMethod("POST");
-        connection.setUseCaches(false);
-        connection.setDoOutput(true);
-        connection.connect();
-        return connection;
+    private HttpURLConnection openConnection(String uri, String method) {
+        for (String host : hosts) {
+            try {
+                URL templateUrl = new URL("http://" + host  + uri);
+                HttpURLConnection connection = ( HttpURLConnection ) templateUrl.openConnection();
+                connection.setRequestMethod(method);
+                connection.setConnectTimeout(timeout);
+                connection.setUseCaches(false);
+                if (method.equalsIgnoreCase("POST") || method.equalsIgnoreCase("PUT")) {
+                    connection.setDoOutput(true);
+                }
+                connection.connect();
+
+                return connection;
+            } catch (IOException e) {
+                LOGGER.error("Error connecting to {}: {}", host, e);
+            }
+        }
+
+        return null;
     }
 
     private void checkForIndexTemplate() {
         try {
-            // DO HEAD REQUEST
-            URL templateUrl = new URL("http://" + host + ":" + port  + "/_template/metrics_template");
-            HttpURLConnection connection = ( HttpURLConnection ) templateUrl.openConnection();
-            connection.setRequestMethod("GET");
-            connection.connect();
+            // DO HEAD REQUEST, when elasticsearch supports it
+            HttpURLConnection connection = openConnection( "/_template/metrics_template", "GET");
+            if (connection == null) {
+                LOGGER.error("Could not connect to any configured elasticsearch instances: {}", Arrays.asList(hosts));
+                return;
+            }
             connection.disconnect();
 
             // Empty response has a body length of 2... please allow me to use HEAD to remove this hack
@@ -335,11 +357,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
             // nothing there, lets create it
             if (isResponseEmpty) {
                 LOGGER.debug("No metrics template found in elasticsearch. Adding...");
-                HttpURLConnection putTemplateConnection = ( HttpURLConnection ) templateUrl.openConnection();
-                putTemplateConnection.setRequestMethod("PUT");
-                putTemplateConnection.setDoInput(true);
-                putTemplateConnection.setDoOutput(true);
-                putTemplateConnection.connect();
+                HttpURLConnection putTemplateConnection = openConnection( "/_template/metrics_template", "PUT");
                 JsonGenerator json = new JsonFactory().createGenerator(putTemplateConnection.getOutputStream());
                 json.writeStartObject();
                 json.writeStringField("template", index + "*");
@@ -370,6 +388,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
                     LOGGER.error("Error adding metrics template to elasticsearch: {}/{}" + putTemplateConnection.getResponseCode(), putTemplateConnection.getResponseMessage());
                 }
             }
+            checkedForIndexTemplate = true;
         } catch (IOException e) {
             LOGGER.error("Error when checking/adding metrics template to elasticsearch", e);
         }

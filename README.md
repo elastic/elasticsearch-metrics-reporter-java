@@ -9,8 +9,7 @@ In case, you are worried, that you need to include the 20MB elasticsearch depend
 ```
 final MetricRegistry registry = new MetricRegistry();
 ElasticsearchReporter reporter = ElasticsearchReporter.forRegistry(registry)
-    .host("localhost")
-    .port(9200)
+    .hosts("localhost:9200", "localhost:9201")
     .build();
 reporter.start(60, TimeUnit.SECONDS);
 ```
@@ -27,8 +26,8 @@ incomingRequestsMeter.mark(1);
 
 ### Options
 
-* `host()`: Name or IP of the host to connect to
-* `port()`: Port number, must be the HTTP port of the elasticsearch instance, defaults to `9200`
+* `hosts()`: A list of hosts used to connect to, must be in the format `hostname:port`, default is `localhost:9200`
+* `timeout()`: Milliseconds to wait for an established connections, before the next host in the list is tried. Defaults to `1000`
 * `bulkSize()`: Defines how many metrics are sent per bulk requests, defaults to `2500`
 * `percolateMetrics()`: Regular expressions to define which metrics should be percolated against. See below for an example
 * `percolateNotifier()`: An implementation of the `Notifier` interface, which is executed upon a matching percolator. See below for an example.
@@ -55,8 +54,6 @@ curl -X PUT localhost:9200/metrics/histogram/_mapping -d '
 
 ```
 ElasticsearchReporter reporter = ElasticsearchReporter.forRegistry(registry)
-    .host("localhost")
-    .port(9200)
     .percolateNotifier(new PagerNotifier())
     .percolateMetrics(".*")
     .build();
@@ -176,9 +173,8 @@ This is how the serialized metrics looks like in elasticsearch
 ```
 
 
-
-
 ## Next steps
 
 * Integration with Kibana would be awesoe
 * Releasing an accompanying dashboard application, which shows some of the realtime monitoring features using percolations
+

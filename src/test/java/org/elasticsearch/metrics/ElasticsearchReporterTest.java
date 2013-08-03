@@ -196,6 +196,25 @@ public class ElasticsearchReporterTest {
     }
 
     @Test
+    public void testThatSpecifyingSeveralHostsWork() throws Exception {
+        elasticsearchReporter = createElasticsearchReporterBuilder().hosts("localhost:10000", "localhost:9999").build();
+
+        registry.counter(name("test", "cache-evictions")).inc();
+        reportAndRefresh();
+
+        SearchResponse searchResponse = client.prepareSearch(indexWithDate).setTypes("counter").execute().actionGet();
+        assertThat(searchResponse.getHits().totalHits(), is(1l));
+    }
+
+    @Test
+    public void testGracefulFailureIfNoHostIsReachable() throws IOException {
+        // if no exception is thrown during the test, we consider it all graceful, as we connected to a dead host
+        elasticsearchReporter = createElasticsearchReporterBuilder().hosts("localhost:10000").build();
+        registry.counter(name("test", "cache-evictions")).inc();
+        elasticsearchReporter.report();
+    }
+
+    @Test
     public void testThatBulkIndexingWorks() {
         for (int i = 0 ; i < 2020; i++) {
             final Counter evictions = registry.counter(name("foo", "bar", String.valueOf(i)));
@@ -278,7 +297,7 @@ public class ElasticsearchReporterTest {
 
     private ElasticsearchReporter.Builder createElasticsearchReporterBuilder() {
         return ElasticsearchReporter.forRegistry(registry)
-                .port(9999)
+                .hosts("localhost:9999")
                 .prefixedWith(prefix)
                 .convertRatesTo(TimeUnit.SECONDS)
                 .convertDurationsTo(TimeUnit.MILLISECONDS)
