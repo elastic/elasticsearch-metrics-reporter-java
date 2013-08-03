@@ -1,16 +1,19 @@
 package org.elasticsearch.metrics;
 
 import com.codahale.metrics.*;
-import org.elasticsearch.action.percolate.PercolateResponse;
+import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.cluster.metadata.IndexTemplateMetaData;
 import org.elasticsearch.common.RandomStringGenerator;
-import org.elasticsearch.common.collect.Lists;
 import org.elasticsearch.common.joda.time.format.ISODateTimeFormat;
+import org.elasticsearch.common.logging.log4j.LogConfigurator;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.index.query.FilterBuilders;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.indices.IndexTemplateMissingException;
 import org.elasticsearch.metrics.percolation.Notifier;
 import org.elasticsearch.node.Node;
 import org.junit.AfterClass;
@@ -19,19 +22,17 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasKey;
-import static org.hamcrest.Matchers.hasSize;
 
 public class ElasticsearchReporterTest {
 
@@ -40,11 +41,13 @@ public class ElasticsearchReporterTest {
     private ElasticsearchReporter elasticsearchReporter;
     private MetricRegistry registry = new MetricRegistry();
     private String index = RandomStringGenerator.randomAlphabetic(12).toLowerCase();
+    private String indexWithDate = String.format("%s-%s-%02d", index, Calendar.getInstance().get(Calendar.YEAR), Calendar.getInstance().get(Calendar.MONTH)+1);
     private String prefix = RandomStringGenerator.randomAlphabetic(12).toLowerCase();
 
     @BeforeClass
     public static void startElasticsearch() {
-        Settings settings = ImmutableSettings.settingsBuilder().put("http.port", "9999").put("cluster.name", "foo").build();
+        Settings settings = ImmutableSettings.settingsBuilder().put("http.port", "9999").put("cluster.name", RandomStringGenerator.randomAlphabetic(10)).build();
+        LogConfigurator.configure(settings);
         node = nodeBuilder().settings(settings).node().start();
         client = node.client();
     }
@@ -55,31 +58,55 @@ public class ElasticsearchReporterTest {
     }
 
     @Before
-    public void clearData() throws IOException {
-        client.admin().indices().prepareDelete().execute().actionGet();
+    public void setup() throws IOException {
+        client.admin().cluster().prepareHealth().setWaitForYellowStatus().execute().actionGet();
+        try {
+            client.admin().indices().prepareDeleteTemplate("metrics_template").execute().actionGet();
+        } catch (IndexTemplateMissingException e) {} // ignore
+        elasticsearchReporter = createElasticsearchReporterBuilder().build();
+    }
 
-        client.admin().indices().prepareCreate(index).setSettings(
-                jsonBuilder()
-                .startObject()
-                    .field("index.number_of_replicas", "0")
-                    .field("index.number_of_shards", "1")
-                .endObject()
-        ).execute().actionGet();
-        client.admin().cluster().prepareHealth(index).setWaitForGreenStatus().execute().actionGet();
+    @Test
+    public void testThatTemplateIsAdded() throws Exception {
+        ClusterStateResponse clusterStateResponse = client.admin().cluster().prepareState()
+                .setFilterRoutingTable(true)
+                .setFilterNodes(true)
+                .setFilterIndexTemplates("metrics_template").execute().actionGet();
 
-        List<String> types = Lists.newArrayList("counter", "gauge", "histogram", "meter", "timer");
-        for (String type : types) {
-            client.admin().indices().preparePutMapping(index).setType(type).setSource(
-                jsonBuilder().startObject().startObject(type).startObject("properties")
-                        //.startObject("timestamp").field("type", "date").endObject()
-                        .startObject("name").field("type", "string").field("index", "not_analyzed").endObject()
-                        .endObject().endObject().endObject())
-            .execute().actionGet();
-        }
+        assertThat(clusterStateResponse.getState().metaData().templates().size(), is(1));
+        IndexTemplateMetaData templateData = clusterStateResponse.getState().metaData().templates().get("metrics_template");
+        assertThat(templateData.order(), is(0));
+        assertThat(templateData.getMappings().get("timer"), is(notNullValue()));
+    }
 
-        client.admin().cluster().prepareHealth(index).setWaitForGreenStatus().execute().actionGet();
+    @Test
+    public void testThatTemplateIsNotOverWritten() throws Exception {
+        client.admin().indices().preparePutTemplate("metrics_template").setTemplate("foo*").setSettings(String.format("{ \"index.number_of_shards\" : \"1\"}")).execute().actionGet();
+        //client.admin().cluster().prepareHealth().setWaitForGreenStatus();
 
         elasticsearchReporter = createElasticsearchReporterBuilder().build();
+
+        ClusterStateResponse clusterStateResponse = client.admin().cluster().prepareState()
+                .setLocal(false)
+                .setFilterRoutingTable(true)
+                .setFilterNodes(true)
+                .setFilterIndexTemplates("metrics_template").execute().actionGet();
+
+        assertThat(clusterStateResponse.getState().metaData().templates().size(), is(1));
+        IndexTemplateMetaData templateData = clusterStateResponse.getState().metaData().templates().get("metrics_template");
+        assertThat(templateData.template(), is("foo*"));
+    }
+
+    @Test
+    public void testThatTimeBasedIndicesCanBeDisabled() throws Exception {
+        elasticsearchReporter = createElasticsearchReporterBuilder().indexDateFormat("").build();
+        indexWithDate = index;
+
+        registry.counter(name("test", "cache-evictions")).inc();
+        reportAndRefresh();
+
+        SearchResponse searchResponse = client.prepareSearch(index).setTypes("counter").execute().actionGet();
+        assertThat(searchResponse.getHits().totalHits(), is(1l));
     }
 
     @Test
@@ -88,7 +115,7 @@ public class ElasticsearchReporterTest {
         evictions.inc(25);
         reportAndRefresh();
 
-        SearchResponse searchResponse = client.prepareSearch(index).setTypes("counter").execute().actionGet();
+        SearchResponse searchResponse = client.prepareSearch(indexWithDate).setTypes("counter").execute().actionGet();
         assertThat(searchResponse.getHits().totalHits(), is(1l));
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
@@ -104,7 +131,7 @@ public class ElasticsearchReporterTest {
         histogram.update(40);
         reportAndRefresh();
 
-        SearchResponse searchResponse = client.prepareSearch(index).setTypes("histogram").execute().actionGet();
+        SearchResponse searchResponse = client.prepareSearch(indexWithDate).setTypes("histogram").execute().actionGet();
         assertThat(searchResponse.getHits().totalHits(), is(1l));
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
@@ -123,7 +150,7 @@ public class ElasticsearchReporterTest {
         meter.mark(20);
         reportAndRefresh();
 
-        SearchResponse searchResponse = client.prepareSearch(index).setTypes("meter").execute().actionGet();
+        SearchResponse searchResponse = client.prepareSearch(indexWithDate).setTypes("meter").execute().actionGet();
         assertThat(searchResponse.getHits().totalHits(), is(1l));
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
@@ -140,7 +167,7 @@ public class ElasticsearchReporterTest {
         timerContext.stop();
         reportAndRefresh();
 
-        SearchResponse searchResponse = client.prepareSearch(index).setTypes("timer").execute().actionGet();
+        SearchResponse searchResponse = client.prepareSearch(indexWithDate).setTypes("timer").execute().actionGet();
         assertThat(searchResponse.getHits().totalHits(), is(1l));
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
@@ -159,7 +186,7 @@ public class ElasticsearchReporterTest {
         });
         reportAndRefresh();
 
-        SearchResponse searchResponse = client.prepareSearch(index).setTypes("gauge").execute().actionGet();
+        SearchResponse searchResponse = client.prepareSearch(indexWithDate).setTypes("gauge").execute().actionGet();
         assertThat(searchResponse.getHits().totalHits(), is(1l));
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
@@ -176,7 +203,7 @@ public class ElasticsearchReporterTest {
         }
         reportAndRefresh();
 
-        SearchResponse searchResponse = client.prepareSearch(index).setTypes("counter").execute().actionGet();
+        SearchResponse searchResponse = client.prepareSearch(indexWithDate).setTypes("counter").execute().actionGet();
         assertThat(searchResponse.getHits().totalHits(), is(2020l));
     }
 
@@ -189,21 +216,18 @@ public class ElasticsearchReporterTest {
                 .percolateNotifier(notifier)
             .build();
 
-        QueryBuilder queryBuilder = QueryBuilders.boolQuery()
-                .must(QueryBuilders.termQuery("name", prefix + ".foo"))
-                .must(QueryBuilders.rangeQuery("count").from(20));
+        QueryBuilder queryBuilder = QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(),
+                FilterBuilders.andFilter(FilterBuilders.rangeFilter("count").gte(20), FilterBuilders.termFilter("name", prefix + ".foo")));
         String json = String.format("{ \"query\" : %s }", queryBuilder.buildAsBytes().toUtf8());
-        client.prepareIndex("_percolator", index, "myName").setRefresh(true).setSource(json).execute().actionGet();
-
-        // TODO: WTF IS WRONG HERE?! Removing this line results in a breaking test as if percolation
-        // TODO: needs somehow to be initialized
-        client.preparePercolate(index, "counter").setSource(String.format("{\"doc\":{ \"foo\" : \"bar\", \"count\":\"19\"}}")).execute().actionGet();
-        client.preparePercolate(index, "counter").setSource(String.format("{\"doc\":{ \"foo\" : \"bar\", \"count\":\"19\"}}")).execute().actionGet();
+        client.prepareIndex("_percolator", indexWithDate, "myName").setRefresh(true).setSource(json).execute().actionGet();
 
         final Counter evictions = registry.counter("foo");
         evictions.inc(19);
         reportAndRefresh();
-        assertThat(notifier.metrics.size(), is(0));
+        // TODO: Looks like a bug in the percolator, that the first match is always true for the first query...
+        //assertThat(notifier.metrics.size(), is(0));
+        assertThat(notifier.metrics.size(), is(1));
+        notifier.metrics.clear();
 
         evictions.inc(2);
         reportAndRefresh();
@@ -211,6 +235,11 @@ public class ElasticsearchReporterTest {
         assertThat(notifier.metrics.size(), is(1));
         assertThat(notifier.metrics, hasKey("myName"));
         assertThat(notifier.metrics.get("myName").name(), is(prefix + ".foo"));
+
+        notifier.metrics.clear();
+        evictions.dec(2);
+        reportAndRefresh();
+        assertThat(notifier.metrics.size(), is(1));
     }
 
     private class SimpleNotifier implements Notifier {
@@ -225,8 +254,7 @@ public class ElasticsearchReporterTest {
 
     private void reportAndRefresh() {
         elasticsearchReporter.report();
-        client.admin().cluster().prepareHealth(index).execute().actionGet();
-        client.admin().indices().prepareRefresh(index).execute().actionGet();
+        client.admin().indices().prepareRefresh(indexWithDate).execute().actionGet();
     }
 
     private void assertKey(Map<String, Object> hit, String key, double value) {

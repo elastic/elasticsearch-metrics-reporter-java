@@ -2,6 +2,7 @@ package org.elasticsearch.metrics;
 
 import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
+import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -15,6 +16,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -42,6 +44,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
         private String host = "localhost";
         private int port = 9200;
         private String index = "metrics";
+        private String indexDateFormat = "yyyy-MM";
         private int bulkSize = 2500;
         private String percolateMetricsRegex;
         private Notifier percolateNotifier;
@@ -90,6 +93,11 @@ public class ElasticsearchReporter extends ScheduledReporter {
             return this;
         }
 
+        public Builder indexDateFormat(String indexDateFormat) {
+            this.indexDateFormat = indexDateFormat;
+            return this;
+        }
+
         public Builder port(int port) {
             this.port = port;
             return this;
@@ -115,6 +123,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
                     host,
                     port,
                     index,
+                    indexDateFormat,
                     bulkSize,
                     clock,
                     prefix,
@@ -137,9 +146,11 @@ public class ElasticsearchReporter extends ScheduledReporter {
     private final ObjectWriter writer;
     private Pattern percolateMetricsRegex;
     private Notifier notifier;
+    private String currentIndexName;
+    private SimpleDateFormat indexDateFormat = null;
 
     public ElasticsearchReporter(MetricRegistry registry, String host,
-                                 int port, String index, int bulkSize, Clock clock, String prefix, TimeUnit rateUnit, TimeUnit durationUnit,
+                                 int port, String index, String indexDateFormat, int bulkSize, Clock clock, String prefix, TimeUnit rateUnit, TimeUnit durationUnit,
                                  MetricFilter filter, String percolateMetricsRegex, Notifier percolateNotifier) throws MalformedURLException {
         super(registry, "elasticsearch-reporter", filter, rateUnit, durationUnit);
         this.host = host;
@@ -149,6 +160,9 @@ public class ElasticsearchReporter extends ScheduledReporter {
         this.bulkSize = bulkSize;
         this.clock = clock;
         this.prefix = prefix;
+        if (indexDateFormat != null && indexDateFormat.length() > 0) {
+            this.indexDateFormat = new SimpleDateFormat(indexDateFormat);
+        }
         if (percolateNotifier != null && percolateMetricsRegex != null) {
             this.percolateMetricsRegex = Pattern.compile(percolateMetricsRegex);
             this.notifier = percolateNotifier;
@@ -160,6 +174,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
         objectMapper.configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false);
         objectMapper.registerModule(new MetricsElasticsearchModule(rateUnit, durationUnit));
         writer = objectMapper.writer();
+        checkForIndexTemplate();
     }
 
     @Override
@@ -168,7 +183,13 @@ public class ElasticsearchReporter extends ScheduledReporter {
                        SortedMap<String, Histogram> histograms,
                        SortedMap<String, Meter> meters,
                        SortedMap<String, Timer> timers) {
+
         final long timestamp = clock.getTime() / 1000;
+
+        currentIndexName = index;
+        if (indexDateFormat != null) {
+            currentIndexName += "-" + indexDateFormat.format(new Date(timestamp * 1000));
+        }
 
         try {
             HttpURLConnection connection = getUrlConnection(url);
@@ -212,7 +233,6 @@ public class ElasticsearchReporter extends ScheduledReporter {
             if (percolationMetrics.size() > 0 && notifier != null) {
                 for (JsonMetric jsonMetric : percolationMetrics) {
                     List<String> matches = getPercolationMatches(jsonMetric);
-                    System.out.println(String.format("Matches for metric %s: %s", jsonMetric.name(), matches));
                     for (String match : matches) {
                         notifier.notify(jsonMetric, match);
                     }
@@ -224,7 +244,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
     }
 
     private List<String> getPercolationMatches(JsonMetric jsonMetric) throws IOException {
-        URL percolationUrl = new URL("http://" + host + ":" + port  + "/" + index + "/" + jsonMetric.type() + "/_percolate");
+        URL percolationUrl = new URL("http://" + host + ":" + port  + "/" + currentIndexName + "/" + jsonMetric.type() + "/_percolate");
         HttpURLConnection connection = getUrlConnection(percolationUrl);
 
         Map<String, Object> data = new HashMap<String, Object>(1);
@@ -278,7 +298,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
     }
 
     private void writeJsonMetric(JsonMetric jsonMetric, ObjectWriter writer, OutputStream out) throws IOException {
-        writer.writeValue(out, new BulkIndexOperationHeader(index, jsonMetric.type()));
+        writer.writeValue(out, new BulkIndexOperationHeader(currentIndexName, jsonMetric.type()));
         out.write("\n".getBytes());
         writer.writeValue(out, jsonMetric);
         out.write("\n".getBytes());
@@ -297,5 +317,61 @@ public class ElasticsearchReporter extends ScheduledReporter {
         connection.setDoOutput(true);
         connection.connect();
         return connection;
+    }
+
+    private void checkForIndexTemplate() {
+        try {
+            // DO HEAD REQUEST
+            URL templateUrl = new URL("http://" + host + ":" + port  + "/_template/metrics_template");
+            HttpURLConnection connection = ( HttpURLConnection ) templateUrl.openConnection();
+            connection.setRequestMethod("GET");
+            connection.connect();
+            connection.disconnect();
+
+            // Empty response has a body length of 2... please allow me to use HEAD to remove this hack
+            // This is sooo ugly
+            boolean isResponseEmpty = connection.getInputStream().read(new byte[3], 0, 3) == 2;
+
+            // nothing there, lets create it
+            if (isResponseEmpty) {
+                LOGGER.debug("No metrics template found in elasticsearch. Adding...");
+                HttpURLConnection putTemplateConnection = ( HttpURLConnection ) templateUrl.openConnection();
+                putTemplateConnection.setRequestMethod("PUT");
+                putTemplateConnection.setDoInput(true);
+                putTemplateConnection.setDoOutput(true);
+                putTemplateConnection.connect();
+                JsonGenerator json = new JsonFactory().createGenerator(putTemplateConnection.getOutputStream());
+                json.writeStartObject();
+                json.writeStringField("template", index + "*");
+                json.writeObjectFieldStart("mappings");
+
+                // PER TYPE
+                String[] types = new String[]{"timer", "counter", "meter", "gauge", "histogram"};
+                for (String type : types) {
+                    json.writeObjectFieldStart(type);
+                    json.writeObjectFieldStart("_all");
+                    json.writeBooleanField("enabled", false);
+                    json.writeEndObject();
+                    json.writeObjectFieldStart("properties");
+                    json.writeObjectFieldStart("name");
+                    json.writeObjectField("type", "string");
+                    json.writeObjectField("index", "not_analyzed");
+                    json.writeEndObject();
+                    json.writeEndObject();
+                    json.writeEndObject();
+                }
+
+                json.writeEndObject();
+                json.writeEndObject();
+                json.flush();
+
+                putTemplateConnection.disconnect();
+                if (putTemplateConnection.getResponseCode() != 200) {
+                    LOGGER.error("Error adding metrics template to elasticsearch: {}/{}" + putTemplateConnection.getResponseCode(), putTemplateConnection.getResponseMessage());
+                }
+            }
+        } catch (IOException e) {
+            LOGGER.error("Error when checking/adding metrics template to elasticsearch", e);
+        }
     }
 }
