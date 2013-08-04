@@ -363,21 +363,17 @@ public class ElasticsearchReporter extends ScheduledReporter {
                 json.writeStringField("template", index + "*");
                 json.writeObjectFieldStart("mappings");
 
-                // PER TYPE
-                String[] types = new String[]{"timer", "counter", "meter", "gauge", "histogram"};
-                for (String type : types) {
-                    json.writeObjectFieldStart(type);
-                    json.writeObjectFieldStart("_all");
-                    json.writeBooleanField("enabled", false);
-                    json.writeEndObject();
-                    json.writeObjectFieldStart("properties");
-                    json.writeObjectFieldStart("name");
-                    json.writeObjectField("type", "string");
-                    json.writeObjectField("index", "not_analyzed");
-                    json.writeEndObject();
-                    json.writeEndObject();
-                    json.writeEndObject();
-                }
+                json.writeObjectFieldStart("_default_");
+                json.writeObjectFieldStart("_all");
+                json.writeBooleanField("enabled", false);
+                json.writeEndObject();
+                json.writeObjectFieldStart("properties");
+                json.writeObjectFieldStart("name");
+                json.writeObjectField("type", "string");
+                json.writeObjectField("index", "not_analyzed");
+                json.writeEndObject();
+                json.writeEndObject();
+                json.writeEndObject();
 
                 json.writeEndObject();
                 json.writeEndObject();

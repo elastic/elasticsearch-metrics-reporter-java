@@ -4,6 +4,7 @@ import com.codahale.metrics.*;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.cluster.metadata.IndexTemplateMetaData;
 import org.elasticsearch.common.RandomStringGenerator;
 import org.elasticsearch.common.joda.time.format.ISODateTimeFormat;
@@ -29,8 +30,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
-import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.CoreMatchers.notNullValue;
+import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasKey;
 
@@ -60,9 +60,11 @@ public class ElasticsearchReporterTest {
     @Before
     public void setup() throws IOException {
         client.admin().cluster().prepareHealth().setWaitForYellowStatus().execute().actionGet();
+        client.admin().indices().prepareDelete().execute().actionGet();
         try {
             client.admin().indices().prepareDeleteTemplate("metrics_template").execute().actionGet();
         } catch (IndexTemplateMissingException e) {} // ignore
+        client.admin().cluster().prepareHealth().setWaitForYellowStatus().execute().actionGet();
         elasticsearchReporter = createElasticsearchReporterBuilder().build();
     }
 
@@ -76,7 +78,35 @@ public class ElasticsearchReporterTest {
         assertThat(clusterStateResponse.getState().metaData().templates().size(), is(1));
         IndexTemplateMetaData templateData = clusterStateResponse.getState().metaData().templates().get("metrics_template");
         assertThat(templateData.order(), is(0));
-        assertThat(templateData.getMappings().get("timer"), is(notNullValue()));
+        assertThat(templateData.getMappings().get("_default_"), is(notNullValue()));
+    }
+
+    @Test
+    public void testThatMappingFromTemplateIsApplied() throws Exception {
+        registry.counter(name("test", "cache-evictions")).inc();
+        reportAndRefresh();
+
+        // somehow the cluster state is not immediately updated... need to check
+        Thread.sleep(200);
+        ClusterStateResponse clusterStateResponse = client.admin().cluster().prepareState().setFilterRoutingTable(true)
+                .setLocal(false)
+                .setFilterNodes(true)
+                .setFilterIndices(indexWithDate)
+                .execute().actionGet();
+
+        assertThat(clusterStateResponse.getState().getMetaData().getIndices(), hasKey(indexWithDate));
+        IndexMetaData indexMetaData = clusterStateResponse.getState().getMetaData().getIndices().get(indexWithDate);
+        assertThat(indexMetaData.getMappings(), hasKey("counter"));
+        Map<String, Object> properties = getAsMap(indexMetaData.mapping("counter").sourceAsMap(), "properties");
+        Map<String, Object> mapping = getAsMap(properties, "name");
+        assertThat(mapping, hasKey("index"));
+        assertThat(mapping.get("index").toString(), is("not_analyzed"));
+    }
+
+    private Map<String, Object> getAsMap(Map<String, Object> map, String key) {
+        assertThat(map, hasKey(key));
+        assertThat(map.get(key), instanceOf(Map.class));
+        return (Map<String, Object>) map.get(key);
     }
 
     @Test
