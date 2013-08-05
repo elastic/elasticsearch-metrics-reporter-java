@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head><title>Monitoring cockpit</title>
+    <link href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="//cdnjs.cloudflare.com/ajax/libs/nvd3/1.0.0-beta/nv.d3.css" rel="stylesheet">
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.2/jquery.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.3.2/js/bootstrap.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.4.4/underscore-min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.0.0/moment.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/handlebars.js/1.0.0-rc.4/handlebars.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/ember.js/1.0.0-rc.6/ember.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/d3/3.2.2/d3.v3.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/nvd3/1.0.0-beta/nv.d3.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/sockjs-client/0.3.4/sockjs.min.js"></script>
+    <script src="/javascripts/ember-app.js"></script>
+</head>
+<body style="padding-top: 60px">
+
+<script type="text/x-handlebars" data-template-name="index">
+
+<div class="navbar navbar-inverse navbar-fixed-top">
+    <div class="navbar-inner">
+        <div class="container"><a href="#" class="brand">Cockpit</a>
+
+            <div class="nav-collapse collapse">
+                <ul class="nav">
+                    <li><span id="messages" {{bindAttr class="length:badge-warning :badge"}}>{{length}}</span></li>
+                    <li><a href="#myModal" data-toggle="modal">Add percolation</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="container">
+    <div class="row">
+        <div class="span6">
+            <form id="drawGraph">
+                <div class="input-append input-mini">
+                    {{view Ember.TextField valueBinding='metricName' id='search' placeholder="Metric Name" class="input-mini span4"}}
+                    {{view Ember.Select contentBinding="metricValues" valueBinding="metricValue"}}
+                    <button class="btn" {{action drawGraph}}>Draw</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="row">
+        <div class="span2">
+            <div id="allMessages">
+  {{#each itemController="notification"}}
+    <div class="alert alert-success"><h6 style="font-size: 10px">
+        <span style="cursor: pointer" {{action drawMetric}}>{{metricName}}</span>
+        <span style="cursor:pointer" {{action deletePercolation}}><i class="icon-trash"></i></span>
+        <a href="#" data-dismiss="alert" class="close" {{action removeNotification}}>&times;</a>
+    </h6></div>
+  {{/each}}
+
+
+            </div>
+        </div>
+        <div class="span9">
+            <div id="chart" style="height: 400px">
+                <svg></svg>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+<div id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true" class="modal hide fade">
+    <div class="modal-header">
+        <button type="button" data-dismiss="modal" aria-hidden="true" class="close">&times;</button>
+        <h3>Add notification</h3></div>
+    <div class="modal-body">
+        <form id="notificationForm" class="form-horizontal">
+            <div class="control-group">
+                <label for="metricId" class="control-label">ID</label>
+                <div class="controls">
+                    {{view Ember.TextField valueBinding='percolatorId' id='metricId' placeholder="Percolator ID"}}
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="metricName" class="control-label">Name</label>
+                <div class="controls">
+                    {{view Ember.TextField valueBinding='percolatorMetricName' id='metricName' placeholder="Metric Name"}}
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="metricField" class="control-label">Field</label>
+                <div class="controls">
+                    {{view Ember.Select contentBinding="percolatorFieldValues" valueBinding="percolatorFieldValue"}}
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="metricRange" class="control-label">Range selector</label>
+                <div class="controls">
+                    {{view Ember.Select contentBinding="App.percolatorOperators" valueBinding="percolatorOperator" class="input-mini"}}
+                    {{view Ember.TextField valueBinding='percolatorValue' placeholder="Value" class="input-small"}}
+                </div> 
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <button data-dismiss="modal" aria-hidden="true" class="btn">Close</button>
+        <button class="btn btn-primary" {{action savePercolation}}>Save</button>
+    </div>
+</div>
+
+</script>
+</html>

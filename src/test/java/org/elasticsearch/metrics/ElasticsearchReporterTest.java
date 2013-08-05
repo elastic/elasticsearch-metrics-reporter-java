@@ -265,22 +265,21 @@ public class ElasticsearchReporterTest {
                 .percolateNotifier(notifier)
             .build();
 
+        final Counter evictions = registry.counter("foo");
+        evictions.inc(18);
+        reportAndRefresh();
+
         QueryBuilder queryBuilder = QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(),
                 FilterBuilders.andFilter(FilterBuilders.rangeFilter("count").gte(20), FilterBuilders.termFilter("name", prefix + ".foo")));
         String json = String.format("{ \"query\" : %s }", queryBuilder.buildAsBytes().toUtf8());
         client.prepareIndex("_percolator", indexWithDate, "myName").setRefresh(true).setSource(json).execute().actionGet();
 
-        final Counter evictions = registry.counter("foo");
-        evictions.inc(19);
+        evictions.inc(1);
         reportAndRefresh();
-        // TODO: Looks like a bug in the percolator, that the first match is always true for the first query...
-        //assertThat(notifier.metrics.size(), is(0));
-        assertThat(notifier.metrics.size(), is(1));
-        notifier.metrics.clear();
+        assertThat(notifier.metrics.size(), is(0));
 
         evictions.inc(2);
         reportAndRefresh();
-
         assertThat(notifier.metrics.size(), is(1));
         assertThat(notifier.metrics, hasKey("myName"));
         assertThat(notifier.metrics.get("myName").name(), is(prefix + ".foo"));
@@ -288,7 +287,7 @@ public class ElasticsearchReporterTest {
         notifier.metrics.clear();
         evictions.dec(2);
         reportAndRefresh();
-        assertThat(notifier.metrics.size(), is(1));
+        assertThat(notifier.metrics.size(), is(0));
     }
 
     private class SimpleNotifier implements Notifier {
