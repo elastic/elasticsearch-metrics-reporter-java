@@ -58,12 +58,14 @@ public class LogfileStreamer {
     private final Counter heartbeatCounter = registry.counter("usa-gov-heartbearts-count");
     private final Timer bulkRequestTimer = registry.timer("bulk-request-timer");
 
+    private static final String clusterName = System.getProperty("cluster.name", "metrics");
+
     public static void main(String[] args) throws Exception {
         new LogfileStreamer().run();
     }
 
     public LogfileStreamer() {
-        client = new TransportClient(ImmutableSettings.settingsBuilder().put("cluster.name", "metrics").build()).addTransportAddress(new
+        client = new TransportClient(ImmutableSettings.settingsBuilder().put("cluster.name", clusterName).build()).addTransportAddress(new
                 InetSocketTransportAddress("localhost", 9300));
         reset();
     }
@@ -173,7 +175,7 @@ public class LogfileStreamer {
     private void startElasticsearchIfNecessary() {
         if (!"no".equals(System.getProperty("create.es.instance"))) {
             System.out.println("Starting elasticsearch instance");
-            NodeBuilder.nodeBuilder().settings(ImmutableSettings.settingsBuilder().put("cluster.name", "metrics").build()).node().start();
+            NodeBuilder.nodeBuilder().settings(ImmutableSettings.settingsBuilder().put("cluster.name", clusterName).build()).node().start();
         } else {
             System.out.println("Not starting elasticsearch instance, please check if available at localhost:9200");
         }
