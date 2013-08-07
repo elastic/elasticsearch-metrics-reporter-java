@@ -4,6 +4,8 @@ This is a reporter for the excellent [metrics library](http://metrics.codahale.c
 
 In case, you are worried, that you need to include the 20MB elasticsearch dependency in your project, you do not need to be. As this reporter is using HTTP for putting data into elasticsearch, the only library needed is the awesome [Jackson JSON library](http://wiki.fasterxml.com/JacksonHome), more exactly the jackson databind library to easily serialize the metrics objects.
 
+If you want to see this in action, go to the `samples/` directory and read the readme over there, to get up and running with a sample application using the metrics library as well as a dashboard application to graph.
+
 ## Configuration
 
 ```
@@ -176,5 +178,4 @@ This is how the serialized metrics looks like in elasticsearch
 ## Next steps
 
 * Integration with Kibana would be awesome
-* Releasing an accompanying dashboard application, which shows some of the realtime monitoring features using percolations
 
