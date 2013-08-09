@@ -43,6 +43,8 @@ npm install
 node app.js
 ```
 
+**Note**: You need at least node v0.8 in order to get the application up and running.
+
 Open up your browser to `http://localhost:3000`
 
 The little application allows you to do one of the following
