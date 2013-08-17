@@ -77,24 +77,26 @@ app.get('/graphNames', function(req, res) {
 app.get('/graphData', function(req, res) {
   var name = req.query.name
   var type = req.query.type
-  var fieldNameToGraph = req.query.value
-  var fields = [ "name", "timestamp", fieldNameToGraph ]
+  var time = req.query.time
+  var fields = [ "name", "timestamp", req.query.values ]
 
   request.post(configuration.es.url)
-    // TODO: time based filter?, currently based on size
-    .send({ size: 1440, filter: { and: [ { term: { name: name } }, { type : { value: type } } ] }, fields: fields, sort: [ { timestamp: { order: "asc" }} ] })
+    // max size is one month, so it can be 24 * 60 * 31, usually we should calculate this dependent on input size
+    .send({ size: 44640, filter: { and: [ { term: { name: name } }, { type : { value: type } }, { range: { timestamp: { from: 'now-' + time, to: 'now' } }} ] }, fields: fields, sort: [ { timestamp: { order: "asc" }} ] })
     .type('json')
     .on('error', function(err) { console.log("Error connecting to " + configuration.es.url + ": " + err) })
     .end(function(response) {
       var hits = response.body.hits.hits
       //console.log(JSON.stringify(hits));
-      var values = _.map(hits, function(hit) { return { x: hit.sort[0], y: hit.fields[fieldNameToGraph] } })
-      //var values = _.each(hits, function(hit) { return { x: hit.sort[0]} })
-      //console.log("VALUES " + JSON.stringify(values))
-      res.end(JSON.stringify([{key:name, values: values}]))
-      //res.end(JSON.stringify([{key:"foo", values: [{x:0,y:0},{x:1,y:1},{x:2,y:2},{x:3,y:3},{x:4,y:4},{x:5,y:5},{x:6,y:6},{x:7,y:7}]}]))
+      var valuesToGraph = req.query.values;
+      var dataToRenderOut = []
+      for (var i = 0 ; i < valuesToGraph.length ; i++) {
+        var currentName = req.query.values[i]
+        var values = _.map(hits, function(hit) { return { x: hit.sort[0], y: hit.fields[currentName] } })
+        dataToRenderOut.push({key:currentName, values: values})
+      }
+      res.end(JSON.stringify(dataToRenderOut))
     });
-  //res.end(JSON.stringify([{key:"foo", values: [{x:0,y:0},{x:1,y:1},{x:2,y:2},{x:3,y:3},{x:4,y:4},{x:5,y:5},{x:6,y:6},{x:7,y:7}]}]))
 });
 
 app.post('/notify', function(req, res) {

@@ -11,6 +11,8 @@ App.metricTypes = {
    gauge: [ 'value' ]
 }
 
+App.metricTimes = [ '1d', '1h', '12h', '1w', '1m' ]
+
 App.percolatorOperators = [ '>', '>=', '<', '<=', '=',]
 
 // models
@@ -19,11 +21,19 @@ App.Percolation = Ember.Object.extend({ id: null, name: null, field: null, opera
 App.Graph = Ember.Object.extend({
     id: null,
 
-    draw : function(metricName, metricValue) {
+    draw : function(metricName, metricValue, metricTime) {
+        var anyParameterEmpty = _.some([metricName, metricValue, metricTime], _.isEmpty)
+        if (anyParameterEmpty) return;
+
         var graph = _.find(App.metricNames, function(entry) { return entry.name === metricName })
         var id = this.get("id")
+        
+        var values = [ metricValue ]
+        // Including min/max vastly destroys the graphs scale in my tests, so I left it out for now
+        // if (_.contains(App.metricTypes[graph.type], 'max')) values.push('max') 
+        // if (_.contains(App.metricTypes[graph.type], 'min')) values.push('min')
 
-        $.getJSON('/graphData', {name: graph.name, type: graph.type, value: metricValue}, function(data) {
+        $.getJSON('/graphData', {name: graph.name, type: graph.type, values: values, time: metricTime}, function(data) {
 
             nv.addGraph(function() {
                 var chart = nv.models.lineWithFocusChart();
@@ -78,13 +88,17 @@ App.NotificationController = Ember.ObjectController.extend({
 
 App.IndexController = Ember.ArrayController.extend({
     drawGraph: function() {
-        App.graph.draw(this.get('metricName'), this.get('metricValue'))
+        App.graph.draw(this.get('metricName'), this.get('metricValue'), this.get('metricTime'))
     },
-    
+
     metricNameDidChange : Ember.observer(function() {
         this.setEmberSelectBox('metricName', 'metricValues', 'metricValue');
     },'metricName'),
     
+    metricTimeDidChange : Ember.observer(function() {
+        this.drawGraph();
+    }, 'metricTime'),
+
     percolatorMetricNameDidChange : Ember.observer(function() {
         this.setEmberSelectBox('percolatorMetricName', 'percolatorFieldValues', 'percolatorFieldValue')
     },'percolatorMetricName'),

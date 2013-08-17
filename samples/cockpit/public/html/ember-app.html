@@ -33,11 +33,12 @@
 </div>
 <div class="container">
     <div class="row">
-        <div class="span6">
+        <div class="span8">
             <form id="drawGraph">
                 <div class="input-append input-mini">
                     {{view Ember.TextField valueBinding='metricName' id='search' placeholder="Metric Name" class="input-mini span4"}}
                     {{view Ember.Select contentBinding="metricValues" valueBinding="metricValue"}}
+                    {{view Ember.Select contentBinding="App.metricTimes" valueBinding="metricTime" class="input-mini span1"}}
                     <button class="btn" {{action drawGraph}}>Draw</button>
                 </div>
             </form>
