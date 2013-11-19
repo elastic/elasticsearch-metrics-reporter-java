@@ -23,6 +23,10 @@ import java.util.Date;
 
 public class JsonMetrics {
 
+    /**
+     * A abstract json metric class, from which all other classes inherit
+     * The other classes are simply concrete json implementations of the existing metrics classes
+     */
     public static abstract class JsonMetric<T> {
         private final String name;
         private long timestamp;

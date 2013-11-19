@@ -62,7 +62,7 @@ public class ElasticsearchReporterTest {
     private MetricRegistry registry = new MetricRegistry();
     private String index = RandomStrings.randomAsciiOfLength(random, 12).toLowerCase();
     private String indexWithDate = String.format("%s-%s-%02d", index, Calendar.getInstance().get(Calendar.YEAR), Calendar.getInstance().get(Calendar.MONTH)+1);
-    private String prefix = RandomStrings.randomAsciiOfLength(random, 12).toLowerCase();;
+    private String prefix = RandomStrings.randomAsciiOfLength(random, 12).toLowerCase();
 
     @BeforeClass
     public static void startElasticsearch() {
@@ -308,6 +308,12 @@ public class ElasticsearchReporterTest {
         evictions.dec(2);
         reportAndRefresh();
         assertThat(notifier.metrics.size(), is(0));
+    }
+
+    @Test
+    public void testThatWronglyConfiguredHostDoesNotLeadToApplicationStop() throws IOException {
+        createElasticsearchReporterBuilder().hosts("dafuq/1234").build();
+        elasticsearchReporter.report();
     }
 
     private class SimpleNotifier implements Notifier {

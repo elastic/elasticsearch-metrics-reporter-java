@@ -42,6 +42,7 @@ import java.util.regex.Pattern;
 
 import static org.elasticsearch.metrics.JsonMetrics.*;
 import static org.elasticsearch.metrics.MetricsElasticsearchModule.BulkIndexOperationHeader;
+import static com.codahale.metrics.MetricRegistry.name;
 
 public class ElasticsearchReporter extends ScheduledReporter {
 
@@ -73,61 +74,102 @@ public class ElasticsearchReporter extends ScheduledReporter {
             this.filter = MetricFilter.ALL;
         }
 
+        /**
+         * Inject your custom definition of how time passes. Usually the default clock is sufficient
+         */
         public Builder withClock(Clock clock) {
             this.clock = clock;
             return this;
         }
 
+        /**
+         * Configure a prefix for each metric name. Optional, but useful to identify single hosts
+         */
         public Builder prefixedWith(String prefix) {
             this.prefix = prefix;
             return this;
         }
 
+        /**
+         * Convert all the rates to a certain timeunit, defaults to seconds
+         */
         public Builder convertRatesTo(TimeUnit rateUnit) {
             this.rateUnit = rateUnit;
             return this;
         }
 
+        /**
+         * Convert all the durations to a certain timeunit, defaults to milliseconds
+         */
         public Builder convertDurationsTo(TimeUnit durationUnit) {
             this.durationUnit = durationUnit;
             return this;
         }
 
+        /**
+         * Allows to configure a special MetricFilter, which defines what metrics are reported
+         */
         public Builder filter(MetricFilter filter) {
             this.filter = filter;
             return this;
         }
 
+        /**
+         * Configure an array of hosts to send data to.
+         * Note: Data is always sent to only one host, but this makes sure, that even if a part of your elasticsearch cluster
+         *       is not running, reporting still happens
+         * A host must be in the format hostname:port
+         * The port must be the HTTP port of your elasticsearch instance
+         */
         public Builder hosts(String ... hosts) {
             this.hosts = hosts;
             return this;
         }
 
+        /**
+         * The timeout to wait for until a connection attempt is and the next host is tried
+         */
         public Builder timeout(int timeout) {
             this.timeout = timeout;
             return this;
         }
 
+        /**
+         * The index name to index in
+         */
         public Builder index(String index) {
             this.index = index;
             return this;
         }
 
+        /**
+         * The index date format used for rolling indices
+         * This is appended to the index name, split by a '-'
+         */
         public Builder indexDateFormat(String indexDateFormat) {
             this.indexDateFormat = indexDateFormat;
             return this;
         }
 
+        /**
+         * The bulk size per request, defaults to 2500 (as metrics are quite small)
+         */
         public Builder bulkSize(int bulkSize) {
             this.bulkSize = bulkSize;
             return this;
         }
 
+        /**
+         * A metrics filter to define the metrics which should be used for percolation/notification
+         */
         public Builder percolateMetrics(String regex) {
             this.percolateMetricsRegex = regex;
             return this;
         }
 
+        /**
+         * An instance of the notifier implemention which should be executed in case of a matching percolation
+         */
         public Builder percolateNotifier(Notifier notifier) {
             this.percolateNotifier = notifier;
             return this;
@@ -186,6 +228,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
 
         objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
         objectMapper.configure(SerializationFeature.CLOSE_CLOSEABLE, false);
+        // auto closing means, that the objectmapper is closing after the first write call, which does not work for bulk requests
         objectMapper.configure(JsonGenerator.Feature.AUTO_CLOSE_JSON_CONTENT, false);
         objectMapper.configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false);
         objectMapper.registerModule(new MetricsElasticsearchModule(rateUnit, durationUnit));
@@ -221,38 +264,39 @@ public class ElasticsearchReporter extends ScheduledReporter {
 
             for (Map.Entry<String, Gauge> entry : gauges.entrySet()) {
                 if (entry.getValue().getValue() != null) {
-                    JsonMetric jsonMetric = new JsonGauge(prefix(entry.getKey()), timestamp, entry.getValue());
+                    JsonMetric jsonMetric = new JsonGauge(name(prefix, entry.getKey()), timestamp, entry.getValue());
                     connection = writeJsonMetricAndRecreateConnectionIfNeeded(jsonMetric, connection, entriesWritten);
                     addJsonMetricToPercolationIfMatching(jsonMetric, percolationMetrics);
                 }
             }
 
             for (Map.Entry<String, Counter> entry : counters.entrySet()) {
-                JsonCounter jsonMetric = new JsonCounter(prefix(entry.getKey()), timestamp, entry.getValue());
+                JsonCounter jsonMetric = new JsonCounter(name(prefix, entry.getKey()), timestamp, entry.getValue());
                 connection = writeJsonMetricAndRecreateConnectionIfNeeded(jsonMetric, connection, entriesWritten);
                 addJsonMetricToPercolationIfMatching(jsonMetric, percolationMetrics);
             }
 
             for (Map.Entry<String, Histogram> entry : histograms.entrySet()) {
-                JsonHistogram jsonMetric = new JsonHistogram(prefix(entry.getKey()), timestamp, entry.getValue());
+                JsonHistogram jsonMetric = new JsonHistogram(name(prefix, entry.getKey()), timestamp, entry.getValue());
                 connection = writeJsonMetricAndRecreateConnectionIfNeeded(jsonMetric, connection, entriesWritten);
                 addJsonMetricToPercolationIfMatching(jsonMetric, percolationMetrics);
             }
 
             for (Map.Entry<String, Meter> entry : meters.entrySet()) {
-                JsonMeter jsonMetric = new JsonMeter(prefix(entry.getKey()), timestamp, entry.getValue());
+                JsonMeter jsonMetric = new JsonMeter(name(prefix, entry.getKey()), timestamp, entry.getValue());
                 connection = writeJsonMetricAndRecreateConnectionIfNeeded(jsonMetric, connection, entriesWritten);
                 addJsonMetricToPercolationIfMatching(jsonMetric, percolationMetrics);
             }
 
             for (Map.Entry<String, Timer> entry : timers.entrySet()) {
-                JsonTimer jsonMetric = new JsonTimer(prefix(entry.getKey()), timestamp, entry.getValue());
+                JsonTimer jsonMetric = new JsonTimer(name(prefix, entry.getKey()), timestamp, entry.getValue());
                 connection = writeJsonMetricAndRecreateConnectionIfNeeded(jsonMetric, connection, entriesWritten);
                 addJsonMetricToPercolationIfMatching(jsonMetric, percolationMetrics);
             }
 
             closeConnection(connection);
 
+            // execute the notifier impl, in case percolation found matches
             if (percolationMetrics.size() > 0 && notifier != null) {
                 for (JsonMetric jsonMetric : percolationMetrics) {
                     List<String> matches = getPercolationMatches(jsonMetric);
@@ -261,11 +305,15 @@ public class ElasticsearchReporter extends ScheduledReporter {
                     }
                 }
             }
+        // catch the exception to make sure we do not interrupt the live application
         } catch (IOException e) {
             LOGGER.error("Couldnt report to elasticsearch server", e);
         }
     }
 
+    /**
+     * Execute a percolation request for the specified metric
+     */
     private List<String> getPercolationMatches(JsonMetric jsonMetric) throws IOException {
         HttpURLConnection connection = openConnection("/" + currentIndexName + "/" + jsonMetric.type() + "/_percolate", "POST");
         if (connection == null) {
@@ -290,6 +338,9 @@ public class ElasticsearchReporter extends ScheduledReporter {
         return Collections.EMPTY_LIST;
     }
 
+    /**
+     * Add metric to list of matched percolation if needed
+     */
     private void addJsonMetricToPercolationIfMatching(JsonMetric jsonMetric, List<JsonMetric> percolationMetrics) {
         if (percolateMetricsRegex != null && percolateMetricsRegex.matcher(jsonMetric.name()).matches()) {
             percolationMetrics.add(jsonMetric);
@@ -311,9 +362,12 @@ public class ElasticsearchReporter extends ScheduledReporter {
         if (connection.getResponseCode() != 200) {
             LOGGER.error("Reporting returned code {} {}: {}", connection.getResponseCode(), connection.getResponseMessage());
         }
-
     }
 
+    /**
+     * Create a new connection when the bulk size has hit the limit
+     * Checked on every write of a metric
+     */
     private HttpURLConnection createNewConnectionIfBulkSizeReached(HttpURLConnection connection, int entriesWritten) throws IOException {
         if (entriesWritten % bulkSize == 0) {
             closeConnection(connection);
@@ -323,6 +377,9 @@ public class ElasticsearchReporter extends ScheduledReporter {
         return connection;
     }
 
+    /**
+     * serialize a JSON metric over the outputstream in a bulk request
+     */
     private void writeJsonMetric(JsonMetric jsonMetric, ObjectWriter writer, OutputStream out) throws IOException {
         writer.writeValue(out, new BulkIndexOperationHeader(currentIndexName, jsonMetric.type()));
         out.write("\n".getBytes());
@@ -332,10 +389,9 @@ public class ElasticsearchReporter extends ScheduledReporter {
         out.flush();
     }
 
-    private String prefix(String... components) {
-        return MetricRegistry.name(prefix, components);
-    }
-
+    /**
+     * Open a new HttpUrlConnection, in case it fails it tries for the next host in the configured list
+     */
     private HttpURLConnection openConnection(String uri, String method) {
         for (String host : hosts) {
             try {
@@ -358,6 +414,10 @@ public class ElasticsearchReporter extends ScheduledReporter {
         return null;
     }
 
+    /**
+     * This index template is automatically applied to all indices which start with the index name
+     * The index template simply configures the name not to be analyzed
+     */
     private void checkForIndexTemplate() {
         try {
             HttpURLConnection connection = openConnection( "/_template/metrics_template", "HEAD");

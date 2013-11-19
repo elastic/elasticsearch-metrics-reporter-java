@@ -197,6 +197,9 @@ public class MetricsElasticsearchModule extends Module {
     }
 
 
+    /**
+     * Serializer for the first line of the bulk index operation before the json metric is written
+     */
     private static class BulkIndexOperationHeaderSerializer extends StdSerializer<BulkIndexOperationHeader> {
 
         public BulkIndexOperationHeaderSerializer() {
@@ -204,7 +207,7 @@ public class MetricsElasticsearchModule extends Module {
         }
 
         @Override
-        public void serialize(BulkIndexOperationHeader bulkIndexOperationHeader, JsonGenerator json, SerializerProvider provider) throws IOException, JsonGenerationException {
+        public void serialize(BulkIndexOperationHeader bulkIndexOperationHeader, JsonGenerator json, SerializerProvider provider) throws IOException {
             json.writeStartObject();
             json.writeObjectFieldStart("index");
             if (bulkIndexOperationHeader.index != null) {
