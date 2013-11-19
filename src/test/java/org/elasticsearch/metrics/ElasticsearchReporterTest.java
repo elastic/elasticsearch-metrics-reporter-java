@@ -18,13 +18,13 @@
  */
 package org.elasticsearch.metrics;
 
+import com.carrotsearch.randomizedtesting.generators.RandomStrings;
 import com.codahale.metrics.*;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.cluster.metadata.IndexTemplateMetaData;
-import org.elasticsearch.common.RandomStringGenerator;
 import org.elasticsearch.common.joda.time.format.ISODateTimeFormat;
 import org.elasticsearch.common.logging.log4j.LogConfigurator;
 import org.elasticsearch.common.settings.ImmutableSettings;
@@ -44,6 +44,7 @@ import java.io.IOException;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
@@ -54,17 +55,18 @@ import static org.hamcrest.Matchers.hasKey;
 
 public class ElasticsearchReporterTest {
 
+    private static final Random random = new Random();
     private static Node node;
     private static Client client;
     private ElasticsearchReporter elasticsearchReporter;
     private MetricRegistry registry = new MetricRegistry();
-    private String index = RandomStringGenerator.randomAlphabetic(12).toLowerCase();
+    private String index = RandomStrings.randomAsciiOfLength(random, 12).toLowerCase();
     private String indexWithDate = String.format("%s-%s-%02d", index, Calendar.getInstance().get(Calendar.YEAR), Calendar.getInstance().get(Calendar.MONTH)+1);
-    private String prefix = RandomStringGenerator.randomAlphabetic(12).toLowerCase();
+    private String prefix = RandomStrings.randomAsciiOfLength(random, 12).toLowerCase();;
 
     @BeforeClass
     public static void startElasticsearch() {
-        Settings settings = ImmutableSettings.settingsBuilder().put("http.port", "9999").put("cluster.name", RandomStringGenerator.randomAlphabetic(10)).build();
+        Settings settings = ImmutableSettings.settingsBuilder().put("http.port", "9999").put("cluster.name", RandomStrings.randomAsciiOfLength(random, 10).toLowerCase()).build();
         LogConfigurator.configure(settings);
         node = nodeBuilder().settings(settings).node().start();
         client = node.client();

@@ -59,57 +59,66 @@ public class JsonMetrics {
     }
 
     public static class JsonGauge extends JsonMetric<Gauge> {
+        private static final String TYPE = "gauge";
+
         public JsonGauge(String name, long timestamp, Gauge value) {
             super(name, timestamp, value);
         }
 
         @Override
         public String type() {
-            return "gauge";
+            return TYPE;
         }
     }
 
     public static class JsonCounter extends JsonMetric<Counter> {
+        private static final String TYPE = "counter";
+
         public JsonCounter(String name, long timestamp, Counter value) {
             super(name, timestamp, value);
         }
 
         @Override
         public String type() {
-            return "counter";
+            return TYPE;
         }
     }
 
     public static class JsonHistogram extends JsonMetric<Histogram> {
+        private static final String TYPE = "histogram";
+
         public JsonHistogram(String name, long timestamp, Histogram value) {
             super(name, timestamp, value);
         }
 
         @Override
         public String type() {
-            return "histogram";
+            return TYPE;
         }
     }
 
     public static class JsonMeter extends JsonMetric<Meter> {
+        private static final String TYPE = "meter";
         public JsonMeter(String name, long timestamp, Meter value) {
             super(name, timestamp, value);
         }
 
         @Override
         public String type() {
-            return "meter";
+            return TYPE;
         }
     }
 
     public static class JsonTimer extends JsonMetric<Timer> {
+        private static final String TYPE = "timer";
+
         public JsonTimer(String name, long timestamp, Timer value) {
             super(name, timestamp, value);
         }
 
         @Override
         public String type() {
-            return "timer";
+            return TYPE;
         }
     }
 }

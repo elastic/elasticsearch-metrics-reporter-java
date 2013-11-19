@@ -360,20 +360,17 @@ public class ElasticsearchReporter extends ScheduledReporter {
 
     private void checkForIndexTemplate() {
         try {
-            // DO HEAD REQUEST, when elasticsearch supports it
-            HttpURLConnection connection = openConnection( "/_template/metrics_template", "GET");
+            HttpURLConnection connection = openConnection( "/_template/metrics_template", "HEAD");
             if (connection == null) {
                 LOGGER.error("Could not connect to any configured elasticsearch instances: {}", Arrays.asList(hosts));
                 return;
             }
             connection.disconnect();
 
-            // Empty response has a body length of 2... please allow me to use HEAD to remove this hack
-            // This is sooo ugly
-            boolean isResponseEmpty = connection.getInputStream().read(new byte[3], 0, 3) == 2;
+            boolean isTemplateMissing = connection.getResponseCode() == HttpURLConnection.HTTP_NOT_FOUND;
 
             // nothing there, lets create it
-            if (isResponseEmpty) {
+            if (isTemplateMissing) {
                 LOGGER.debug("No metrics template found in elasticsearch. Adding...");
                 HttpURLConnection putTemplateConnection = openConnection( "/_template/metrics_template", "PUT");
                 JsonGenerator json = new JsonFactory().createGenerator(putTemplateConnection.getOutputStream());

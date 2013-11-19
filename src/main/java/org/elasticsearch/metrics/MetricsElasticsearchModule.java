@@ -218,7 +218,6 @@ public class MetricsElasticsearchModule extends Module {
         }
     }
 
-    // { "index" : { "_index" : "test", "_type" : "type1", "_id" : "1" } }
     public static class BulkIndexOperationHeader {
         public String index;
         public String type;
