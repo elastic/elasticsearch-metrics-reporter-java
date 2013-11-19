@@ -31,8 +31,8 @@ incomingRequestsMeter.mark(1);
 * `hosts()`: A list of hosts used to connect to, must be in the format `hostname:port`, default is `localhost:9200`
 * `timeout()`: Milliseconds to wait for an established connections, before the next host in the list is tried. Defaults to `1000`
 * `bulkSize()`: Defines how many metrics are sent per bulk requests, defaults to `2500`
-* `percolateMetrics()`: Regular expressions to define which metrics should be percolated against. See below for an example
-* `percolateNotifier()`: An implementation of the `Notifier` interface, which is executed upon a matching percolator. See below for an example.
+* `percolationFilter()`: A `MetricFilter` to define which metrics should be percolated against. See below for an example
+* `percolationNotifier()`: An implementation of the `Notifier` interface, which is executed upon a matching percolator. See below for an example.
 
 ### Mapping
 
@@ -56,8 +56,8 @@ curl -X PUT localhost:9200/metrics/histogram/_mapping -d '
 
 ```
 ElasticsearchReporter reporter = ElasticsearchReporter.forRegistry(registry)
-    .percolateNotifier(new PagerNotifier())
-    .percolateMetrics(".*")
+    .percolationNotifier(new PagerNotifier())
+    .percolationFilter(MetricFilter.ALL)
     .build();
 reporter.start(60, TimeUnit.SECONDS);
 ```
