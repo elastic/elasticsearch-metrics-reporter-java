@@ -38,11 +38,10 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Pattern;
 
+import static com.codahale.metrics.MetricRegistry.name;
 import static org.elasticsearch.metrics.JsonMetrics.*;
 import static org.elasticsearch.metrics.MetricsElasticsearchModule.BulkIndexOperationHeader;
-import static com.codahale.metrics.MetricRegistry.name;
 
 public class ElasticsearchReporter extends ScheduledReporter {
 
