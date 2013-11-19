@@ -280,9 +280,15 @@ public class ElasticsearchReporterTest {
     public void testThatPercolationNotificationWorks() throws IOException, InterruptedException {
         SimpleNotifier notifier = new SimpleNotifier();
 
+        MetricFilter percolationFilter = new MetricFilter() {
+            @Override
+            public boolean matches(String name, Metric metric) {
+                return name.startsWith(prefix + ".foo");
+            }
+        };
         elasticsearchReporter = createElasticsearchReporterBuilder()
-                .percolateMetrics(prefix + ".foo")
-                .percolateNotifier(notifier)
+                .percolationFilter(percolationFilter)
+                .percolationNotifier(notifier)
             .build();
 
         final Counter evictions = registry.counter("foo");

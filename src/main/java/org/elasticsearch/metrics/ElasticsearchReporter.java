@@ -61,8 +61,8 @@ public class ElasticsearchReporter extends ScheduledReporter {
         private String index = "metrics";
         private String indexDateFormat = "yyyy-MM";
         private int bulkSize = 2500;
-        private String percolateMetricsRegex;
-        private Notifier percolateNotifier;
+        private Notifier percolationNotifier;
+        private MetricFilter percolationFilter;
         private int timeout = 1000;
 
         private Builder(MetricRegistry registry) {
@@ -162,16 +162,16 @@ public class ElasticsearchReporter extends ScheduledReporter {
         /**
          * A metrics filter to define the metrics which should be used for percolation/notification
          */
-        public Builder percolateMetrics(String regex) {
-            this.percolateMetricsRegex = regex;
+        public Builder percolationFilter(MetricFilter percolationFilter) {
+            this.percolationFilter = percolationFilter;
             return this;
         }
 
         /**
          * An instance of the notifier implemention which should be executed in case of a matching percolation
          */
-        public Builder percolateNotifier(Notifier notifier) {
-            this.percolateNotifier = notifier;
+        public Builder percolationNotifier(Notifier notifier) {
+            this.percolationNotifier = notifier;
             return this;
         }
 
@@ -187,8 +187,8 @@ public class ElasticsearchReporter extends ScheduledReporter {
                     rateUnit,
                     durationUnit,
                     filter,
-                    percolateMetricsRegex,
-                    percolateNotifier);
+                    percolationFilter,
+                    percolationNotifier);
         }
     }
 
@@ -202,7 +202,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
     private final int timeout;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ObjectWriter writer;
-    private Pattern percolateMetricsRegex;
+    private MetricFilter percolationFilter;
     private Notifier notifier;
     private String currentIndexName;
     private SimpleDateFormat indexDateFormat = null;
@@ -210,7 +210,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
 
     public ElasticsearchReporter(MetricRegistry registry, String[] hosts, int timeout,
                                  String index, String indexDateFormat, int bulkSize, Clock clock, String prefix, TimeUnit rateUnit, TimeUnit durationUnit,
-                                 MetricFilter filter, String percolateMetricsRegex, Notifier percolateNotifier) throws MalformedURLException {
+                                 MetricFilter filter, MetricFilter percolationFilter, Notifier percolationNotifier) throws MalformedURLException {
         super(registry, "elasticsearch-reporter", filter, rateUnit, durationUnit);
         this.hosts = hosts;
         this.index = index;
@@ -221,9 +221,9 @@ public class ElasticsearchReporter extends ScheduledReporter {
         if (indexDateFormat != null && indexDateFormat.length() > 0) {
             this.indexDateFormat = new SimpleDateFormat(indexDateFormat);
         }
-        if (percolateNotifier != null && percolateMetricsRegex != null) {
-            this.percolateMetricsRegex = Pattern.compile(percolateMetricsRegex);
-            this.notifier = percolateNotifier;
+        if (percolationNotifier != null && percolationFilter != null) {
+            this.percolationFilter = percolationFilter;
+            this.notifier = percolationNotifier;
         }
 
         objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
@@ -341,8 +341,8 @@ public class ElasticsearchReporter extends ScheduledReporter {
     /**
      * Add metric to list of matched percolation if needed
      */
-    private void addJsonMetricToPercolationIfMatching(JsonMetric jsonMetric, List<JsonMetric> percolationMetrics) {
-        if (percolateMetricsRegex != null && percolateMetricsRegex.matcher(jsonMetric.name()).matches()) {
+    private void addJsonMetricToPercolationIfMatching(JsonMetric<? extends Metric> jsonMetric, List<JsonMetric> percolationMetrics) {
+        if (percolationFilter != null && percolationFilter.matches(jsonMetric.name(), jsonMetric.value())) {
             percolationMetrics.add(jsonMetric);
         }
     }
