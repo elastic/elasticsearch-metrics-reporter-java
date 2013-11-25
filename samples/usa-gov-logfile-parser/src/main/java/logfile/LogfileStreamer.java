@@ -16,10 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package de.spinscale.logfile;
+package logfile;
 
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.Meter;
+import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.databind.MappingIterator;
@@ -96,8 +97,8 @@ public class LogfileStreamer {
         ElasticsearchReporter reporter = ElasticsearchReporter.forRegistry(registry)
                 .hosts("localhost:9200")
                 .indexDateFormat("")
-                .percolateNotifier(new HttpNotifier())
-                .percolateMetrics(".*")
+                .percolationNotifier(new HttpNotifier())
+                .percolationFilter(MetricFilter.ALL)
                 .build();
         reporter.start(60, TimeUnit.SECONDS);
 
@@ -115,10 +116,10 @@ public class LogfileStreamer {
                 }
 
                 if (entry.containsKey("ll") && entry.containsKey("t")) {
-                    List<Double> location = (List<Double>) entry.get("ll");
                     long timestamp = ((Integer) entry.get("t")).longValue();
-                    double latitude = location.get(0);
-                    double longitude = location.get(1);
+                    List<Number> location = (List<Number>) entry.get("ll");
+                    double latitude = location.get(0).doubleValue();
+                    double longitude = location.get(1).doubleValue();
 
                     addToBulkRequest(timestamp, latitude, longitude);
                     entryMeter.mark(1);

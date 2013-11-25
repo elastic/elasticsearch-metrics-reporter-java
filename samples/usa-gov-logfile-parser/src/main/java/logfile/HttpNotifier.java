@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package de.spinscale.logfile;
+package logfile;
 
 import org.elasticsearch.metrics.JsonMetrics;
 import org.elasticsearch.metrics.percolation.Notifier;
