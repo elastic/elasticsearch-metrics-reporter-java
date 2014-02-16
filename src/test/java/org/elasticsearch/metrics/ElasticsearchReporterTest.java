@@ -114,9 +114,9 @@ public class ElasticsearchReporterTest {
                 .setFilterIndices(indexWithDate)
                 .execute().actionGet();
 
-        assertThat(clusterStateResponse.getState().getMetaData().getIndices(), hasKey(indexWithDate));
+        assertThat(clusterStateResponse.getState().getMetaData().getIndices().containsKey(indexWithDate), is(true));
         IndexMetaData indexMetaData = clusterStateResponse.getState().getMetaData().getIndices().get(indexWithDate);
-        assertThat(indexMetaData.getMappings(), hasKey("counter"));
+        assertThat(indexMetaData.getMappings().containsKey("counter"), is(true));
         Map<String, Object> properties = getAsMap(indexMetaData.mapping("counter").sourceAsMap(), "properties");
         Map<String, Object> mapping = getAsMap(properties, "name");
         assertThat(mapping, hasKey("index"));
