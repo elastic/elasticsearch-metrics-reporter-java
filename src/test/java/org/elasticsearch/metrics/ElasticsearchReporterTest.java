@@ -351,9 +351,9 @@ public class ElasticsearchReporterTest {
     }
 
     private void assertTimestamp(Map<String, Object> hit) {
-        assertThat(hit, hasKey("timestamp"));
+        assertThat(hit, hasKey("@timestamp"));
         // no exception means everything is cool
-        ISODateTimeFormat.dateOptionalTimeParser().parseDateTime(hit.get("timestamp").toString());
+        ISODateTimeFormat.dateOptionalTimeParser().parseDateTime(hit.get("@timestamp").toString());
     }
 
     private ElasticsearchReporter.Builder createElasticsearchReporterBuilder() {

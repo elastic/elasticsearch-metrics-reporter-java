@@ -78,11 +78,11 @@ app.get('/graphData', function(req, res) {
   var name = req.query.name
   var type = req.query.type
   var time = req.query.time
-  var fields = [ "name", "timestamp", req.query.values ]
+  var fields = [ "name", "@timestamp", req.query.values ]
 
   request.post(configuration.es.url)
     // max size is one month, so it can be 24 * 60 * 31, usually we should calculate this dependent on input size
-    .send({ size: 44640, filter: { and: [ { term: { name: name } }, { type : { value: type } }, { range: { timestamp: { from: 'now-' + time, to: 'now' } }} ] }, fields: fields, sort: [ { timestamp: { order: "asc" }} ] })
+    .send({ size: 44640, filter: { and: [ { term: { name: name } }, { type : { value: type } }, { range: { '@timestamp': { from: 'now-' + time, to: 'now' } }} ] }, fields: fields, sort: [ { '@timestamp': { order: "asc" }} ] })
     .type('json')
     .on('error', function(err) { console.log("Error connecting to " + configuration.es.url + ": " + err) })
     .end(function(response) {

@@ -110,7 +110,7 @@ This is how the serialized metrics looks like in elasticsearch
 ```
 {
   "name": "usa-gov-heartbearts",
-  "timestamp": "2013-07-20T09:29:58.000+0000",
+  "@timestamp": "2013-07-20T09:29:58.000+0000",
   "count": 18
 }
 ```
@@ -120,7 +120,7 @@ This is how the serialized metrics looks like in elasticsearch
 ```
 {
   "name" : "bulk-request-timer",
-  "timestamp" : "2013-07-20T09:43:58.000+0000",
+  "@timestamp" : "2013-07-20T09:43:58.000+0000",
   "count" : 114,
   "max" : 109.681,
   "mean" : 5.439666666666667,
@@ -146,7 +146,7 @@ This is how the serialized metrics looks like in elasticsearch
 ```
 {
   "name" : "usagov-incoming-requests",
-  "timestamp" : "2013-07-20T09:29:58.000+0000",
+  "@timestamp" : "2013-07-20T09:29:58.000+0000",
   "count" : 224,
   "m1_rate" : 0.3236309568191993,
   "m5_rate" : 0.45207208204948995,
@@ -161,7 +161,7 @@ This is how the serialized metrics looks like in elasticsearch
 ```
 {
   "name" : "my-histgram",
-  "timestamp" : "2013-07-20T09:29:58.000+0000",
+  "@timestamp" : "2013-07-20T09:29:58.000+0000",
   "count" : 114,
   "max" : 109.681,
   "mean" : 5.439666666666667,
@@ -181,7 +181,7 @@ This is how the serialized metrics looks like in elasticsearch
 ```
 {
   "name" : "usagov-incoming-requests",
-  "timestamp" : "2013-07-20T09:29:58.000+0000",
+  "@timestamp" : "2013-07-20T09:29:58.000+0000",
   "value" : 123
 }
 ```

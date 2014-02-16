@@ -50,7 +50,7 @@ public class MetricsElasticsearchModule extends Module {
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
             json.writeStringField("name", gauge.name());
-            json.writeObjectField("timestamp", gauge.timestampAsDate());
+            json.writeObjectField("@timestamp", gauge.timestampAsDate());
             final Object value;
             try {
                 value = gauge.value().getValue();
@@ -73,7 +73,7 @@ public class MetricsElasticsearchModule extends Module {
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
             json.writeStringField("name", counter.name());
-            json.writeObjectField("timestamp", counter.timestampAsDate());
+            json.writeObjectField("@timestamp", counter.timestampAsDate());
             json.writeNumberField("count", counter.value().getCount());
             json.writeEndObject();
         }
@@ -91,7 +91,7 @@ public class MetricsElasticsearchModule extends Module {
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
             json.writeStringField("name", jsonHistogram.name());
-            json.writeObjectField("timestamp", jsonHistogram.timestampAsDate());
+            json.writeObjectField("@timestamp", jsonHistogram.timestampAsDate());
             Histogram histogram = jsonHistogram.value();
 
             final Snapshot snapshot = histogram.getSnapshot();
@@ -127,7 +127,7 @@ public class MetricsElasticsearchModule extends Module {
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
             json.writeStringField("name", jsonMeter.name());
-            json.writeObjectField("timestamp", jsonMeter.timestampAsDate());
+            json.writeObjectField("@timestamp", jsonMeter.timestampAsDate());
             Meter meter = jsonMeter.value();
             json.writeNumberField("count", meter.getCount());
             json.writeNumberField("m15_rate", meter.getOneMinuteRate() * rateFactor);
@@ -159,7 +159,7 @@ public class MetricsElasticsearchModule extends Module {
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
             json.writeStringField("name", jsonTimer.name());
-            json.writeObjectField("timestamp", jsonTimer.timestampAsDate());
+            json.writeObjectField("@timestamp", jsonTimer.timestampAsDate());
             Timer timer = jsonTimer.value();
             final Snapshot snapshot = timer.getSnapshot();
             json.writeNumberField("count", timer.getCount());
