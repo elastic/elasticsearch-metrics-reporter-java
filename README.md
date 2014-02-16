@@ -6,6 +6,13 @@ In case, you are worried, that you need to include the 20MB elasticsearch depend
 
 If you want to see this in action, go to the `samples/` directory and read the readme over there, to get up and running with a sample application using the metrics library as well as a dashboard application to graph.
 
+## Compatibility
+
+|   Metrics-elasticsearch-reporter  |    elasticsearch    | Release date |
+|-----------------------------------|---------------------|:------------:|
+| 1.1                               | 1.0.0  -> master    |  2014-02-16  |
+| 1.0                               | 0.90.5 -> 0.90.x    |  2014-02-05  |
+
 ## Installation
 
 You can simply add a dependency in your `pom.xml` (or whatever dependency resolution system you might have)

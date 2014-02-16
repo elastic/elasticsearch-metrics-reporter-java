@@ -344,11 +344,17 @@ public class ElasticsearchReporter extends ScheduledReporter {
         }
 
         Map<String, Object> input = objectMapper.readValue(connection.getInputStream(), Map.class);
-        if (input.containsKey("matches")) {
-            return (List<String>) input.get("matches");
+        List<String> matches = new ArrayList<String>();
+        if (input.containsKey("matches") && input.get("matches") instanceof List) {
+            List<Map<String, String>> foundMatches = (List<Map<String, String>>) input.get("matches");
+            for (Map<String, String> entry : foundMatches) {
+                if (entry.containsKey("_id")) {
+                    matches.add(entry.get("_id"));
+                }
+            }
         }
 
-        return Collections.EMPTY_LIST;
+        return matches;
     }
 
     /**
