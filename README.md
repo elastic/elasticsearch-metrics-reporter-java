@@ -87,7 +87,7 @@ public class PagerNotifier implements Notifier {
 Add a percolation
 
 ```
-curl http://localhost:9200/_percolator/metrics/http-monitor -X PUT -d '{
+curl http://localhost:9200/metrics/.percolator/http-monitor -X PUT -d '{
   "query" : { 
     "bool" : { 
       "must": [
