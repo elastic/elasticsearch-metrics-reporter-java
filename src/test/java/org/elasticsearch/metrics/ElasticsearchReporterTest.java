@@ -322,6 +322,19 @@ public class ElasticsearchReporterTest {
         elasticsearchReporter.report();
     }
 
+    @Test
+    public void testThatTimestampFieldnameCanBeConfigured() throws Exception {
+        elasticsearchReporter = createElasticsearchReporterBuilder().timestampFieldname("myTimeStampField").build();
+        registry.counter(name("myMetrics", "cache-evictions")).inc();
+        reportAndRefresh();
+
+        SearchResponse searchResponse = client.prepareSearch(indexWithDate).setTypes("counter").execute().actionGet();
+        assertThat(searchResponse.getHits().totalHits(), is(1l));
+
+        Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
+        assertThat(hit, hasKey("myTimeStampField"));
+    }
+
     private class SimpleNotifier implements Notifier {
 
         public Map<String, JsonMetrics.JsonMetric> metrics = new HashMap<String, JsonMetrics.JsonMetric>();

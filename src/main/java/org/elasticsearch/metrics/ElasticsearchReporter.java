@@ -63,6 +63,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
         private Notifier percolationNotifier;
         private MetricFilter percolationFilter;
         private int timeout = 1000;
+        private String timestampFieldname = "@timestamp";
 
         private Builder(MetricRegistry registry) {
             this.registry = registry;
@@ -174,6 +175,14 @@ public class ElasticsearchReporter extends ScheduledReporter {
             return this;
         }
 
+        /**
+         * Configure the name of the timestamp field, defaults to '@timestamp'
+         */
+        public Builder timestampFieldname(String fieldName) {
+            this.timestampFieldname = fieldName;
+            return this;
+        }
+
         public ElasticsearchReporter build() throws IOException {
             return new ElasticsearchReporter(registry,
                     hosts,
@@ -187,7 +196,8 @@ public class ElasticsearchReporter extends ScheduledReporter {
                     durationUnit,
                     filter,
                     percolationFilter,
-                    percolationNotifier);
+                    percolationNotifier,
+                    timestampFieldname);
         }
     }
 
@@ -209,7 +219,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
 
     public ElasticsearchReporter(MetricRegistry registry, String[] hosts, int timeout,
                                  String index, String indexDateFormat, int bulkSize, Clock clock, String prefix, TimeUnit rateUnit, TimeUnit durationUnit,
-                                 MetricFilter filter, MetricFilter percolationFilter, Notifier percolationNotifier) throws MalformedURLException {
+                                 MetricFilter filter, MetricFilter percolationFilter, Notifier percolationNotifier, String timestampFieldname) throws MalformedURLException {
         super(registry, "elasticsearch-reporter", filter, rateUnit, durationUnit);
         this.hosts = hosts;
         this.index = index;
@@ -224,13 +234,17 @@ public class ElasticsearchReporter extends ScheduledReporter {
             this.percolationFilter = percolationFilter;
             this.notifier = percolationNotifier;
         }
+        if (timestampFieldname == null || timestampFieldname.trim().length() == 0) {
+            LOGGER.error("Timestampfieldname {} is not valid, using default @timestamp", timestampFieldname);
+            timestampFieldname = "@timestamp";
+        }
 
         objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
         objectMapper.configure(SerializationFeature.CLOSE_CLOSEABLE, false);
         // auto closing means, that the objectmapper is closing after the first write call, which does not work for bulk requests
         objectMapper.configure(JsonGenerator.Feature.AUTO_CLOSE_JSON_CONTENT, false);
         objectMapper.configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false);
-        objectMapper.registerModule(new MetricsElasticsearchModule(rateUnit, durationUnit));
+        objectMapper.registerModule(new MetricsElasticsearchModule(rateUnit, durationUnit, timestampFieldname));
         writer = objectMapper.writer();
         checkForIndexTemplate();
     }

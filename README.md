@@ -43,26 +43,17 @@ incomingRequestsMeter.mark(1);
 * `hosts()`: A list of hosts used to connect to, must be in the format `hostname:port`, default is `localhost:9200`
 * `timeout()`: Milliseconds to wait for an established connections, before the next host in the list is tried. Defaults to `1000`
 * `bulkSize()`: Defines how many metrics are sent per bulk requests, defaults to `2500`
+* `filter()`: A `MetricFilter` to define which metrics written to the elasticsearch
 * `percolationFilter()`: A `MetricFilter` to define which metrics should be percolated against. See below for an example
 * `percolationNotifier()`: An implementation of the `Notifier` interface, which is executed upon a matching percolator. See below for an example.
+* `index()`: The name of the index to write to, defaults to `metrics`
+* `indexDateFormat()`: The date format to make sure to rotate to a new index, defaults to `yyyy-MM`
+* `timestampFieldname()`: The field name of the timestamp, defaults to `@timestamp`, which makes it easy to use with kibana
 
 ### Mapping
 
-**Note**: Mapping is optional. But maybe you want to facet on the metric name, then you should not need to analyze the field.
+**Note**: The reporter automatically checks for the existence of an index template called `metrics_template`. If this template does not exist, it is created. This template ensures that all strings used in metrics are set to `not_analyzed` and disables the `_all` field.
 
-```
-curl -X PUT localhost:9200/metrics
-curl -X PUT localhost:9200/metrics/timer/_mapping -d '
-{ "timer" : { "properties" : { "name" : { "type" : "string", "index": "not_analyzed" } } } }'
-curl -X PUT localhost:9200/metrics/counter/_mapping -d '
-{ "counter" : { "properties" : { "name" : { "type" : "string", "index": "not_analyzed" } } } }'
-curl -X PUT localhost:9200/metrics/meter/_mapping -d '
-{ "meter" : { "properties" : { "name" : { "type" : "string", "index": "not_analyzed" } } } }'
-curl -X PUT localhost:9200/metrics/gauge/_mapping -d '
-{ "gauge" : { "properties" : { "name" : { "type" : "string", "index": "not_analyzed" } } } }'
-curl -X PUT localhost:9200/metrics/histogram/_mapping -d '
-{ "histogram" : { "properties" : { "name" : { "type" : "string", "index": "not_analyzed" } } } }'
-```
 
 ## Notifications with percolations
 
