@@ -10,8 +10,8 @@ If you want to see this in action, go to the `samples/` directory and read the r
 
 |   Metrics-elasticsearch-reporter  |    elasticsearch    | Release date |
 |-----------------------------------|---------------------|:------------:|
-| 1.1                               | 1.0.0  -> master    |  2014-02-16  |
-| 1.0                               | 0.90.5 -> 0.90.x    |  2014-02-05  |
+| 2.0                               | 1.0.0  -> master    |  2014-02-16  |
+| 1.0                               | 0.90.7 -> 0.90.x    |  2014-02-05  |
 
 ## Installation
 
@@ -21,7 +21,7 @@ You can simply add a dependency in your `pom.xml` (or whatever dependency resolu
 <dependency>
   <groupId>org.elasticsearch</groupId>
   <artifactId>metrics-elasticsearch-reporter</artifactId>
-  <version>1.0</version>
+  <version>2.0</version>
 </dependency>
 ```
 
