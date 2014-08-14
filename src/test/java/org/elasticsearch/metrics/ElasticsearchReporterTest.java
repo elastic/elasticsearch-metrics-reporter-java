@@ -21,6 +21,7 @@ package org.elasticsearch.metrics;
 import com.codahale.metrics.*;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
+import org.elasticsearch.action.admin.indices.template.get.GetIndexTemplatesResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.cluster.metadata.IndexTemplateMetaData;
@@ -45,6 +46,7 @@ import java.util.concurrent.TimeUnit;
 import static com.codahale.metrics.MetricRegistry.name;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.hasSize;
 
 public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
@@ -61,13 +63,10 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
     @Test
     public void testThatTemplateIsAdded() throws Exception {
-        ClusterStateResponse clusterStateResponse = client().admin().cluster().prepareState()
-                .setRoutingTable(false)
-                .setNodes(true)
-                .setIndexTemplates("metrics_template").execute().actionGet();
+        GetIndexTemplatesResponse response = client().admin().indices().prepareGetTemplates("metrics_template").get();
 
-        assertThat(clusterStateResponse.getState().metaData().templates().size(), is(1));
-        IndexTemplateMetaData templateData = clusterStateResponse.getState().metaData().templates().get("metrics_template");
+        assertThat(response.getIndexTemplates(), hasSize(1));
+        IndexTemplateMetaData templateData = response.getIndexTemplates().get(0);
         assertThat(templateData.order(), is(0));
         assertThat(templateData.getMappings().get("_default_"), is(notNullValue()));
     }
@@ -107,14 +106,10 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
         elasticsearchReporter = createElasticsearchReporterBuilder().build();
 
-        ClusterStateResponse clusterStateResponse = client().admin().cluster().prepareState()
-                .setLocal(false)
-                .setRoutingTable(false)
-                .setNodes(false)
-                .setIndexTemplates("metrics_template").execute().actionGet();
+        GetIndexTemplatesResponse response = client().admin().indices().prepareGetTemplates("metrics_template").get();
 
-        assertThat(clusterStateResponse.getState().metaData().templates().size(), is(1));
-        IndexTemplateMetaData templateData = clusterStateResponse.getState().metaData().templates().get("metrics_template");
+        assertThat(response.getIndexTemplates(), hasSize(1));
+        IndexTemplateMetaData templateData = response.getIndexTemplates().get(0);
         assertThat(templateData.template(), is("foo*"));
     }
 
