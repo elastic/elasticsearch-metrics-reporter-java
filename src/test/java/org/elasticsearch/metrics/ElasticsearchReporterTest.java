@@ -336,7 +336,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
     }
 
     private int getPortOfRunningNode() {
-        TransportAddress transportAddress = cluster().getInstance(HttpServerTransport.class).boundAddress().boundAddress();
+        TransportAddress transportAddress = internalCluster().getInstance(HttpServerTransport.class).boundAddress().boundAddress();
         if (transportAddress instanceof InetSocketTransportAddress) {
             return ((InetSocketTransportAddress) transportAddress).address().getPort();
         }
