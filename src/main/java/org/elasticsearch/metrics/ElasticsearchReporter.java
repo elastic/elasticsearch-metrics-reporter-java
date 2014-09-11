@@ -255,6 +255,13 @@ public class ElasticsearchReporter extends ScheduledReporter {
                        SortedMap<String, Histogram> histograms,
                        SortedMap<String, Meter> meters,
                        SortedMap<String, Timer> timers) {
+
+        // nothing to do if we dont have any metrics to report
+        if (gauges.isEmpty() && counters.isEmpty() && histograms.isEmpty() && meters.isEmpty() && timers.isEmpty()) {
+            LOGGER.info("All metrics empty, nothing to report");
+            return;
+        }
+
         if (!checkedForIndexTemplate) {
             checkForIndexTemplate();
         }

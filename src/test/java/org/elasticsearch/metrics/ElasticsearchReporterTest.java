@@ -20,6 +20,8 @@ package org.elasticsearch.metrics;
 
 import com.codahale.metrics.*;
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
+import org.elasticsearch.action.admin.cluster.node.stats.NodesStatsResponse;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.action.admin.indices.template.get.GetIndexTemplatesResponse;
 import org.elasticsearch.action.search.SearchResponse;
@@ -299,6 +301,24 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
         assertThat(hit, hasKey("myTimeStampField"));
+    }
+
+    @Test // issue #6
+    public void testThatEmptyMetricsDoNotResultInBrokenBulkRequest() throws Exception {
+        long connectionsBeforeReporting = getTotalHttpConnections();
+        elasticsearchReporter.report();
+        long connectionsAfterReporting = getTotalHttpConnections();
+
+        assertThat(connectionsAfterReporting, is(connectionsBeforeReporting));
+    }
+
+    private long getTotalHttpConnections() {
+        NodesStatsResponse nodeStats = client().admin().cluster().prepareNodesStats().setHttp(true).get();
+        int totalOpenConnections = 0;
+        for (NodeStats stats : nodeStats.getNodes()) {
+            totalOpenConnections += stats.getHttp().getTotalOpen();
+        }
+        return totalOpenConnections;
     }
 
     private class SimpleNotifier implements Notifier {
