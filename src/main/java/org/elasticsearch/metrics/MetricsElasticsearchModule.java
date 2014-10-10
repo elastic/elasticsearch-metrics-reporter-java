@@ -18,10 +18,7 @@
  */
 package org.elasticsearch.metrics;
 
-import static org.elasticsearch.metrics.JsonMetrics.*;
-
 import com.codahale.metrics.*;
-import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.JsonSerializer;
@@ -33,7 +30,10 @@ import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
+import static org.elasticsearch.metrics.JsonMetrics.*;
 
 public class MetricsElasticsearchModule extends Module {
 
@@ -41,10 +41,12 @@ public class MetricsElasticsearchModule extends Module {
 
     private static class GaugeSerializer extends StdSerializer<JsonGauge> {
         private final String timestampFieldname;
+        private final Map<String, Object> additionalFields;
 
-        private GaugeSerializer(String timestampFieldname) {
+        private GaugeSerializer(String timestampFieldname, Map<String, Object> additionalFields) {
             super(JsonGauge.class);
             this.timestampFieldname = timestampFieldname;
+            this.additionalFields = additionalFields;
         }
 
         @Override
@@ -61,16 +63,27 @@ public class MetricsElasticsearchModule extends Module {
             } catch (RuntimeException e) {
                 json.writeObjectField("error", e.toString());
             }
+            writeAdditionalFields(additionalFields, json);
             json.writeEndObject();
+        }
+    }
+
+    private static <T> void writeAdditionalFields(final Map<String, Object> additionalFields, final JsonGenerator json) throws IOException {
+        if (additionalFields != null) {
+            for (final Map.Entry<String, Object> field : additionalFields.entrySet()) {
+                json.writeObjectField(field.getKey(), field.getValue());
+            }
         }
     }
 
     private static class CounterSerializer extends StdSerializer<JsonCounter> {
         private final String timestampFieldname;
+        private final Map<String, Object> additionalFields;
 
-        private CounterSerializer(String timestampFieldname) {
+        private CounterSerializer(String timestampFieldname, Map<String, Object> additionalFields) {
             super(JsonCounter.class);
             this.timestampFieldname = timestampFieldname;
+            this.additionalFields = additionalFields;
         }
 
         @Override
@@ -81,6 +94,7 @@ public class MetricsElasticsearchModule extends Module {
             json.writeStringField("name", counter.name());
             json.writeObjectField(timestampFieldname, counter.timestampAsDate());
             json.writeNumberField("count", counter.value().getCount());
+            writeAdditionalFields(additionalFields, json);
             json.writeEndObject();
         }
     }
@@ -88,10 +102,12 @@ public class MetricsElasticsearchModule extends Module {
     private static class HistogramSerializer extends StdSerializer<JsonHistogram> {
 
         private final String timestampFieldname;
+        private final Map<String, Object> additionalFields;
 
-        private HistogramSerializer(String timestampFieldname) {
+        private HistogramSerializer(String timestampFieldname, Map<String, Object> additionalFields) {
             super(JsonHistogram.class);
             this.timestampFieldname = timestampFieldname;
+            this.additionalFields = additionalFields;
         }
 
         @Override
@@ -116,6 +132,7 @@ public class MetricsElasticsearchModule extends Module {
             json.writeNumberField("p999", snapshot.get999thPercentile());
 
             json.writeNumberField("stddev", snapshot.getStdDev());
+            writeAdditionalFields(additionalFields, json);
             json.writeEndObject();
         }
     }
@@ -124,12 +141,14 @@ public class MetricsElasticsearchModule extends Module {
         private final String rateUnit;
         private final double rateFactor;
         private final String timestampFieldname;
+        private final Map<String, Object> additionalFields;
 
-        public MeterSerializer(TimeUnit rateUnit, String timestampFieldname) {
+        public MeterSerializer(TimeUnit rateUnit, String timestampFieldname, Map<String, Object> additionalFields) {
             super(JsonMeter.class);
             this.timestampFieldname = timestampFieldname;
             this.rateFactor = rateUnit.toSeconds(1);
             this.rateUnit = calculateRateUnit(rateUnit, "events");
+            this.additionalFields = additionalFields;
         }
 
         @Override
@@ -146,6 +165,7 @@ public class MetricsElasticsearchModule extends Module {
             json.writeNumberField("m15_rate", meter.getFifteenMinuteRate() * rateFactor);
             json.writeNumberField("mean_rate", meter.getMeanRate() * rateFactor);
             json.writeStringField("units", rateUnit);
+            writeAdditionalFields(additionalFields, json);
             json.writeEndObject();
         }
     }
@@ -156,14 +176,16 @@ public class MetricsElasticsearchModule extends Module {
         private final String durationUnit;
         private final double durationFactor;
         private final String timestampFieldname;
+        private final Map<String, Object> additionalFields;
 
-        private TimerSerializer(TimeUnit rateUnit, TimeUnit durationUnit, String timestampFieldname) {
+        private TimerSerializer(TimeUnit rateUnit, TimeUnit durationUnit, String timestampFieldname, Map<String, Object> additionalFields) {
             super(JsonTimer.class);
             this.timestampFieldname = timestampFieldname;
             this.rateUnit = calculateRateUnit(rateUnit, "calls");
             this.rateFactor = rateUnit.toSeconds(1);
             this.durationUnit = durationUnit.toString().toLowerCase(Locale.US);
             this.durationFactor = 1.0 / durationUnit.toNanos(1);
+            this.additionalFields = additionalFields;
         }
 
         @Override
@@ -205,6 +227,7 @@ public class MetricsElasticsearchModule extends Module {
             json.writeNumberField("mean_rate", timer.getMeanRate() * rateFactor);
             json.writeStringField("duration_units", durationUnit);
             json.writeStringField("rate_units", rateUnit);
+            writeAdditionalFields(additionalFields, json);
             json.writeEndObject();
         }
     }
@@ -215,7 +238,7 @@ public class MetricsElasticsearchModule extends Module {
      */
     private static class BulkIndexOperationHeaderSerializer extends StdSerializer<BulkIndexOperationHeader> {
 
-        public BulkIndexOperationHeaderSerializer(String timestampFieldname) {
+        public BulkIndexOperationHeaderSerializer(String timestampFieldname, Map<String, Object> additionalFields) {
             super(BulkIndexOperationHeader.class);
         }
 
@@ -247,11 +270,13 @@ public class MetricsElasticsearchModule extends Module {
     private final TimeUnit rateUnit;
     private final TimeUnit durationUnit;
     private final String timestampFieldname;
+    private final Map<String, Object> additionalFields;
 
-    public MetricsElasticsearchModule(TimeUnit rateUnit, TimeUnit durationUnit, String timestampFieldname) {
+    public MetricsElasticsearchModule(TimeUnit rateUnit, TimeUnit durationUnit, String timestampFieldname, Map<String, Object> additionalFields) {
         this.rateUnit = rateUnit;
         this.durationUnit = durationUnit;
         this.timestampFieldname = timestampFieldname;
+        this.additionalFields = additionalFields;
     }
 
     @Override
@@ -267,12 +292,12 @@ public class MetricsElasticsearchModule extends Module {
     @Override
     public void setupModule(SetupContext context) {
         context.addSerializers(new SimpleSerializers(Arrays.<JsonSerializer<?>>asList(
-                new GaugeSerializer(timestampFieldname),
-                new CounterSerializer(timestampFieldname),
-                new HistogramSerializer(timestampFieldname),
-                new MeterSerializer(rateUnit, timestampFieldname),
-                new TimerSerializer(rateUnit, durationUnit, timestampFieldname),
-                new BulkIndexOperationHeaderSerializer(timestampFieldname)
+                new GaugeSerializer(timestampFieldname, additionalFields),
+                new CounterSerializer(timestampFieldname, additionalFields),
+                new HistogramSerializer(timestampFieldname, additionalFields),
+                new MeterSerializer(rateUnit, timestampFieldname, additionalFields),
+                new TimerSerializer(rateUnit, durationUnit, timestampFieldname, additionalFields),
+                new BulkIndexOperationHeaderSerializer(timestampFieldname, additionalFields)
         )));
     }
 
