@@ -140,6 +140,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         assertTimestamp(hit);
         assertKey(hit, "count", 25);
         assertKey(hit, "name", prefix + ".test.cache-evictions");
+        assertKey(hit, "host", "localhost");
     }
 
     @Test
@@ -159,6 +160,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         assertKey(hit, "max", 40);
         assertKey(hit, "min", 20);
         assertKey(hit, "mean", 30.0);
+        assertKey(hit, "host", "localhost");
     }
 
     @Test
@@ -175,6 +177,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         assertTimestamp(hit);
         assertKey(hit, "name", prefix + ".foo.bar");
         assertKey(hit, "count", 30);
+        assertKey(hit, "host", "localhost");
     }
 
     @Test
@@ -192,6 +195,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         assertTimestamp(hit);
         assertKey(hit, "name", prefix + ".foo.bar");
         assertKey(hit, "count", 1);
+        assertKey(hit, "host", "localhost");
     }
 
     @Test
@@ -211,6 +215,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         assertTimestamp(hit);
         assertKey(hit, "name", prefix + ".foo.bar");
         assertKey(hit, "value", 1234);
+        assertKey(hit, "host", "localhost");
     }
 
     @Test
@@ -364,12 +369,15 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
     }
 
     private ElasticsearchReporter.Builder createElasticsearchReporterBuilder() {
+        Map<String, Object> additionalFields = new HashMap<String, Object>();
+        additionalFields.put("host", "localhost");
         return ElasticsearchReporter.forRegistry(registry)
                 .hosts("localhost:" + getPortOfRunningNode())
                 .prefixedWith(prefix)
                 .convertRatesTo(TimeUnit.SECONDS)
                 .convertDurationsTo(TimeUnit.MILLISECONDS)
                 .filter(MetricFilter.ALL)
-                .index(index);
+                .index(index)
+                .additionalFields(additionalFields);
     }
 }
