@@ -76,6 +76,14 @@ public class MetricsElasticsearchModule extends Module {
         }
     }
 
+    private static <T> void writeAdditionalFields(final Map<String, Object> additionalFields, final JsonGenerator json) throws IOException {
+        if (additionalFields != null) {
+            for (final Map.Entry<String, Object> field : additionalFields.entrySet()) {
+                json.writeObjectField(field.getKey(), field.getValue());
+            }
+        }
+    }
+
     private static class CounterSerializer extends StdSerializer<JsonCounter> {
         private final String timestampFieldname;
         private final Map<String, Object> additionalFields;
