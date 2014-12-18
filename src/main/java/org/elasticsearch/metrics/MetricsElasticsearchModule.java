@@ -62,12 +62,11 @@ public class MetricsElasticsearchModule extends Module {
                               JsonGenerator json,
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
-            json.writeStringField("name", gauge.name());
             json.writeObjectField(timestampFieldname, gauge.timestampAsDate());
             final Object value;
             try {
                 value = gauge.value().getValue();
-                json.writeObjectField("value", value);
+                json.writeObjectField(gauge.name(), value);
             } catch (RuntimeException e) {
                 json.writeObjectField("error", e.toString());
             }
@@ -91,9 +90,8 @@ public class MetricsElasticsearchModule extends Module {
                               JsonGenerator json,
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
-            json.writeStringField("name", counter.name());
             json.writeObjectField(timestampFieldname, counter.timestampAsDate());
-            json.writeNumberField("count", counter.value().getCount());
+            json.writeNumberField(counter.name(), counter.value().getCount());
             writeAdditionalFields(additionalFields, json);
             json.writeEndObject();
         }
@@ -115,8 +113,10 @@ public class MetricsElasticsearchModule extends Module {
                               JsonGenerator json,
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
-            json.writeStringField("name", jsonHistogram.name());
             json.writeObjectField(timestampFieldname, jsonHistogram.timestampAsDate());
+            json.writeFieldName(jsonHistogram.name());
+            json.writeStartObject();
+
             Histogram histogram = jsonHistogram.value();
 
             final Snapshot snapshot = histogram.getSnapshot();
@@ -133,6 +133,7 @@ public class MetricsElasticsearchModule extends Module {
 
             json.writeNumberField("stddev", snapshot.getStdDev());
             writeAdditionalFields(additionalFields, json);
+            json.writeEndObject();
             json.writeEndObject();
         }
     }
@@ -156,8 +157,9 @@ public class MetricsElasticsearchModule extends Module {
                               JsonGenerator json,
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
-            json.writeStringField("name", jsonMeter.name());
             json.writeObjectField(timestampFieldname, jsonMeter.timestampAsDate());
+            json.writeFieldName(jsonMeter.name());
+            json.writeStartObject();
             Meter meter = jsonMeter.value();
             json.writeNumberField("count", meter.getCount());
             json.writeNumberField("m1_rate", meter.getOneMinuteRate() * rateFactor);
@@ -166,6 +168,7 @@ public class MetricsElasticsearchModule extends Module {
             json.writeNumberField("mean_rate", meter.getMeanRate() * rateFactor);
             json.writeStringField("units", rateUnit);
             writeAdditionalFields(additionalFields, json);
+            json.writeEndObject();
             json.writeEndObject();
         }
     }
@@ -193,8 +196,9 @@ public class MetricsElasticsearchModule extends Module {
                               JsonGenerator json,
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
-            json.writeStringField("name", jsonTimer.name());
             json.writeObjectField(timestampFieldname, jsonTimer.timestampAsDate());
+            json.writeFieldName(jsonTimer.name());
+            json.writeStartObject();
             Timer timer = jsonTimer.value();
             final Snapshot snapshot = timer.getSnapshot();
             json.writeNumberField("count", timer.getCount());
@@ -228,6 +232,7 @@ public class MetricsElasticsearchModule extends Module {
             json.writeStringField("duration_units", durationUnit);
             json.writeStringField("rate_units", rateUnit);
             writeAdditionalFields(additionalFields, json);
+            json.writeEndObject();
             json.writeEndObject();
         }
     }
