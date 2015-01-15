@@ -237,6 +237,25 @@ public class MetricsElasticsearchModule extends Module {
         }
     }
 
+    private static class StartTimeSerializer extends StdSerializer<JsonStartTime> {
+        private final String timestampFieldname;
+
+        public StartTimeSerializer(String timestampFieldname) {
+            super(JsonStartTime.class);
+            this.timestampFieldname = timestampFieldname;
+        }
+
+        @Override
+        public void serialize(JsonStartTime jsonStartTime,
+                              JsonGenerator json,
+                              SerializerProvider provider) throws IOException {
+            json.writeStartObject();
+            json.writeObjectField(timestampFieldname, jsonStartTime.timestampAsDate());
+            json.writeNumberField(jsonStartTime.name(), jsonStartTime.value());
+            json.writeEndObject();
+        }
+    }
+
 
     /**
      * Serializer for the first line of the bulk index operation before the json metric is written
@@ -302,6 +321,7 @@ public class MetricsElasticsearchModule extends Module {
                 new HistogramSerializer(timestampFieldname, additionalFields),
                 new MeterSerializer(rateUnit, timestampFieldname, additionalFields),
                 new TimerSerializer(rateUnit, durationUnit, timestampFieldname, additionalFields),
+                new StartTimeSerializer(timestampFieldname),
                 new BulkIndexOperationHeaderSerializer(timestampFieldname, additionalFields)
         )));
     }
