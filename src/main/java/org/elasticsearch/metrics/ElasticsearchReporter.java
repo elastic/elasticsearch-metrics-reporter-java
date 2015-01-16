@@ -56,7 +56,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
         private TimeUnit rateUnit;
         private TimeUnit durationUnit;
         private MetricFilter filter;
-        private String[] hosts = new String[]{ "localhost:9200" };
+        private String[] hosts = new String[]{"localhost:9200"};
         private String index = "metrics";
         private String indexDateFormat = "yyyy-MM";
         private int bulkSize = 2500;
@@ -65,6 +65,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
         private int timeout = 1000;
         private String timestampFieldname = "@timestamp";
         private Map<String, Object> additionalFields;
+        private boolean saveEntryOnInstantiation = false;
 
         private Builder(MetricRegistry registry) {
             this.registry = registry;
@@ -194,6 +195,16 @@ public class ElasticsearchReporter extends ScheduledReporter {
             return this;
         }
 
+        /**
+         * Custom method. On save log start up time.
+         *
+         * @return Builder
+         */
+        public Builder saveEntryOnInstantiation(boolean saveEntryOnInstantiation) {
+            this.saveEntryOnInstantiation = saveEntryOnInstantiation;
+            return this;
+        }
+
         public ElasticsearchReporter build() throws IOException {
             return new ElasticsearchReporter(registry,
                     hosts,
@@ -209,6 +220,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
                     percolationFilter,
                     percolationNotifier,
                     timestampFieldname,
+                    saveEntryOnInstantiation,
                     additionalFields);
         }
     }
@@ -228,10 +240,15 @@ public class ElasticsearchReporter extends ScheduledReporter {
     private String currentIndexName;
     private SimpleDateFormat indexDateFormat = null;
     private boolean checkedForIndexTemplate = false;
+    private boolean saveEntryOnInstantiation;
 
     public ElasticsearchReporter(MetricRegistry registry, String[] hosts, int timeout,
-                                 String index, String indexDateFormat, int bulkSize, Clock clock, String prefix, TimeUnit rateUnit, TimeUnit durationUnit,
-                                 MetricFilter filter, MetricFilter percolationFilter, Notifier percolationNotifier, String timestampFieldname, Map<String, Object> additionalFields) throws MalformedURLException {
+                                 String index, String indexDateFormat, int bulkSize, Clock clock, String prefix,
+                                 TimeUnit rateUnit, TimeUnit durationUnit,
+                                 MetricFilter filter, MetricFilter percolationFilter, Notifier percolationNotifier,
+                                 String timestampFieldname,
+                                 boolean saveEntryOnInstantiation, Map<String, Object> additionalFields)
+            throws MalformedURLException {
         super(registry, "elasticsearch-reporter", filter, rateUnit, durationUnit);
         this.hosts = hosts;
         this.index = index;
@@ -239,6 +256,8 @@ public class ElasticsearchReporter extends ScheduledReporter {
         this.clock = clock;
         this.prefix = prefix;
         this.timeout = timeout;
+        this.saveEntryOnInstantiation = saveEntryOnInstantiation;
+
         if (indexDateFormat != null && indexDateFormat.length() > 0) {
             this.indexDateFormat = new SimpleDateFormat(indexDateFormat);
         }
@@ -262,11 +281,31 @@ public class ElasticsearchReporter extends ScheduledReporter {
     }
 
     @Override
-    public void report(SortedMap<String, Gauge> gauges,
-                       SortedMap<String, Counter> counters,
-                       SortedMap<String, Histogram> histograms,
-                       SortedMap<String, Meter> meters,
-                       SortedMap<String, Timer> timers) {
+    public void start(long period, TimeUnit unit) {
+        super.start(period, unit);
+
+        if (saveEntryOnInstantiation) {
+            new HttpConnectionTemplate() {
+
+                @Override
+                protected HttpURLConnection performAction(HttpURLConnection connection, long timestamp)
+                        throws IOException {
+                    JsonMetric jsonMetric = new JsonStartTime(name(prefix, "metricStart"));
+                    connection =
+                            writeJsonMetricAndRecreateConnectionIfNeeded(jsonMetric, connection, new AtomicInteger(0));
+                    return connection;
+                }
+            }.write();
+        }
+    }
+
+
+    @Override
+    public void report(final SortedMap<String, Gauge> gauges,
+                       final SortedMap<String, Counter> counters,
+                       final SortedMap<String, Histogram> histograms,
+                       final SortedMap<String, Meter> meters,
+                       final SortedMap<String, Timer> timers) {
 
         // nothing to do if we dont have any metrics to report
         if (gauges.isEmpty() && counters.isEmpty() && histograms.isEmpty() && meters.isEmpty() && timers.isEmpty()) {
@@ -341,6 +380,41 @@ public class ElasticsearchReporter extends ScheduledReporter {
         } catch (IOException e) {
             LOGGER.error("Couldnt report to elasticsearch server", e);
         }
+    }
+
+    private abstract class HttpConnectionTemplate {
+
+        public void write() {
+            if (!checkedForIndexTemplate) {
+                checkForIndexTemplate();
+            }
+            final long timestamp = clock.getTime() / 1000;
+
+            currentIndexName = index;
+            if (indexDateFormat != null) {
+                currentIndexName += "-" + indexDateFormat.format(new Date(timestamp * 1000));
+            }
+
+            try {
+                HttpURLConnection connection = openConnection("/_bulk", "POST");
+                if (connection == null) {
+                    LOGGER.error("Could not connect to any configured elasticsearch instances: {}",
+                            Arrays.asList(hosts));
+                    return;
+                }
+
+                connection = performAction(connection, timestamp);
+
+                closeConnection(connection);
+                // catch the exception to make sure we do not interrupt the live application
+            } catch (IOException e) {
+                LOGGER.error("Couldnt report to elasticsearch server", e);
+            }
+        }
+
+        protected abstract HttpURLConnection performAction(HttpURLConnection connection, long timestamp)
+                throws IOException;
+
     }
 
     /**
