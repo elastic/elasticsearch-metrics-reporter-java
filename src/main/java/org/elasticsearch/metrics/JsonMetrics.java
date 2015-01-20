@@ -129,8 +129,8 @@ public class JsonMetrics {
     public static class JsonStartTime extends JsonMetric<Integer> {
         private static final String TYPE = "metricsStarted";
 
-        public JsonStartTime(String name) {
-            super(name, System.currentTimeMillis(), 1);
+        public JsonStartTime(String name, long timestamp) {
+            super(name, timestamp, 1);
         }
 
         @Override

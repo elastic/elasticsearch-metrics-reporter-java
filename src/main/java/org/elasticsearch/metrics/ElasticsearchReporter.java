@@ -290,7 +290,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
                 @Override
                 protected HttpURLConnection performAction(HttpURLConnection connection, long timestamp)
                         throws IOException {
-                    JsonMetric jsonMetric = new JsonStartTime(name(prefix, "metricStart"));
+                    JsonMetric jsonMetric = new JsonStartTime(name(prefix, "metricStart"), timestamp);
                     connection =
                             writeJsonMetricAndRecreateConnectionIfNeeded(jsonMetric, connection, new AtomicInteger(0));
                     return connection;
