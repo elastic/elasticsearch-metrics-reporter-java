@@ -31,9 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
+import java.net.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -64,6 +62,9 @@ public class ElasticsearchReporter extends ScheduledReporter {
         private MetricFilter percolationFilter;
         private int timeout = 1000;
         private String timestampFieldname = "@timestamp";
+        private String hostnameField = "host";
+        private String hostName;
+        private boolean sendHostname = true;
         private Map<String, Object> additionalFields;
         private boolean saveEntryOnInstantiation = false;
 
@@ -188,6 +189,35 @@ public class ElasticsearchReporter extends ScheduledReporter {
             return this;
         }
 
+        /** Configure the name of the hostname field, instead of {@code host}. */
+        @SuppressWarnings("unused")
+        public Builder hostnameFieldname(String value) {
+            this.hostnameField = value;
+            return this;
+        }
+
+        /** Set the hostname sending the provided hostname in {@code host}.*/
+        public Builder withHostname(String hostname) {
+            hostName = hostname;
+            return this;
+        }
+
+        /**
+         * Uses the traditional {@link InetAddress#getLocalHost()} mechanism to sniff the hostname,
+         * sending it in the field used by {@link #withHostname(String)}.
+         */
+        public Builder withMyHostname() throws UnknownHostException {
+            final String hostName = InetAddress.getLocalHost().getHostName();
+            return this.withHostname(hostName);
+        }
+
+        /** Disables the default option of sending along the hostname. */
+        @SuppressWarnings("unused")
+        public Builder withoutHostname() {
+            this.sendHostname = false;
+            return this;
+        }
+
         /**
          * Additional fields to be included for each metric
          */
@@ -197,7 +227,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
         }
 
         /**
-         * Custom method. On save log start up time.
+         * Custom method to save log start up time.
          */
         @SuppressWarnings("unused")
         public Builder saveEntryOnInstantiation(boolean saveEntryOnInstantiation) {
@@ -206,6 +236,15 @@ public class ElasticsearchReporter extends ScheduledReporter {
         }
 
         public ElasticsearchReporter build() throws IOException {
+            if (sendHostname) {
+                if (null == hostName) {
+                    withMyHostname();
+                }
+                if (null == additionalFields) {
+                    additionalFields = new HashMap<>();
+                }
+                additionalFields.put(hostnameField, hostName);
+            }
             return new ElasticsearchReporter(registry,
                     hosts,
                     timeout,
