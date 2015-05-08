@@ -95,6 +95,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         assertThat(mapping.get("index").toString(), is("not_analyzed"));
     }
 
+    @SuppressWarnings("unchecked")
     private Map<String, Object> getAsMap(Map<String, Object> map, String key) {
         assertThat(map, hasKey(key));
         assertThat(map.get(key), instanceOf(Map.class));
@@ -328,7 +329,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
     private class SimpleNotifier implements Notifier {
 
-        public Map<String, JsonMetrics.JsonMetric> metrics = new HashMap<String, JsonMetrics.JsonMetric>();
+        public Map<String, JsonMetrics.JsonMetric> metrics = new HashMap<>();
 
         @Override
         public void notify(JsonMetrics.JsonMetric jsonMetric, String match) {
@@ -369,7 +370,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
     }
 
     private ElasticsearchReporter.Builder createElasticsearchReporterBuilder() {
-        Map<String, Object> additionalFields = new HashMap<String, Object>();
+        Map<String, Object> additionalFields = new HashMap<>();
         additionalFields.put("host", "localhost");
         return ElasticsearchReporter.forRegistry(registry)
                 .hosts("localhost:" + getPortOfRunningNode())
