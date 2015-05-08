@@ -547,6 +547,10 @@ public class ElasticsearchReporter extends ScheduledReporter {
             if (isTemplateMissing) {
                 LOGGER.debug("No metrics template found in elasticsearch. Adding...");
                 HttpURLConnection putTemplateConnection = openConnection( "/_template/metrics_template", "PUT");
+                if (null == putTemplateConnection) {
+                    LOGGER.error("Could not connect to any configured elasticsearch instances: {}", Arrays.asList(hosts));
+                    return;
+                }
                 JsonGenerator json = new JsonFactory().createGenerator(putTemplateConnection.getOutputStream());
                 json.writeStartObject();
                 json.writeStringField("template", index + "*");
