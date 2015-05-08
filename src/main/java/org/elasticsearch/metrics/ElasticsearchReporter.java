@@ -245,22 +245,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
                 }
                 additionalFields.put(hostnameField, hostName);
             }
-            return new ElasticsearchReporter(registry,
-                    hosts,
-                    timeout,
-                    index,
-                    indexDateFormat,
-                    bulkSize,
-                    clock,
-                    prefix,
-                    rateUnit,
-                    durationUnit,
-                    filter,
-                    percolationFilter,
-                    percolationNotifier,
-                    timestampFieldname,
-                    saveEntryOnInstantiation,
-                    additionalFields);
+            return new ElasticsearchReporter(this);
         }
     }
 
@@ -281,32 +266,27 @@ public class ElasticsearchReporter extends ScheduledReporter {
     private boolean checkedForIndexTemplate = false;
     private boolean saveEntryOnInstantiation;
 
-    public ElasticsearchReporter(MetricRegistry registry, String[] hosts, int timeout,
-                                 String index, String indexDateFormat, int bulkSize, Clock clock, String prefix,
-                                 TimeUnit rateUnit, TimeUnit durationUnit,
-                                 MetricFilter filter, MetricFilter percolationFilter, Notifier percolationNotifier,
-                                 String timestampFieldname,
-                                 boolean saveEntryOnInstantiation, Map<String, Object> additionalFields)
+    public ElasticsearchReporter(Builder config)
             throws MalformedURLException {
-        super(registry, "elasticsearch-reporter", filter, rateUnit, durationUnit);
-        this.hosts = hosts;
-        this.index = index;
-        this.bulkSize = bulkSize;
-        this.clock = clock;
-        this.prefix = prefix;
-        this.timeout = timeout;
-        this.saveEntryOnInstantiation = saveEntryOnInstantiation;
+        super(config.registry, "elasticsearch-reporter", config.filter, config.rateUnit, config.durationUnit);
+        this.hosts = config.hosts;
+        this.index = config.index;
+        this.bulkSize = config.bulkSize;
+        this.clock = config.clock;
+        this.prefix = config.prefix;
+        this.timeout = config.timeout;
+        this.saveEntryOnInstantiation = config.saveEntryOnInstantiation;
 
-        if (indexDateFormat != null && indexDateFormat.length() > 0) {
-            this.indexDateFormat = new SimpleDateFormat(indexDateFormat);
+        if (config.indexDateFormat != null && config.indexDateFormat.length() > 0) {
+            this.indexDateFormat = new SimpleDateFormat(config.indexDateFormat);
         }
-        if (percolationNotifier != null && percolationFilter != null) {
-            this.percolationFilter = percolationFilter;
-            this.notifier = percolationNotifier;
+        if (config.percolationNotifier != null && config.percolationFilter != null) {
+            this.percolationFilter = config.percolationFilter;
+            this.notifier = config.percolationNotifier;
         }
-        if (timestampFieldname == null || timestampFieldname.trim().length() == 0) {
-            LOGGER.error("Timestampfieldname {} is not valid, using default @timestamp", timestampFieldname);
-            timestampFieldname = "@timestamp";
+        if (config.timestampFieldname == null || config.timestampFieldname.trim().length() == 0) {
+            LOGGER.error("Timestampfieldname {} is not valid, using default @timestamp", config.timestampFieldname);
+            config.timestampFieldname = "@timestamp";
         }
 
         objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
@@ -314,7 +294,8 @@ public class ElasticsearchReporter extends ScheduledReporter {
         // auto closing means, that the objectmapper is closing after the first write call, which does not work for bulk requests
         objectMapper.configure(JsonGenerator.Feature.AUTO_CLOSE_JSON_CONTENT, false);
         objectMapper.configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false);
-        objectMapper.registerModule(new MetricsElasticsearchModule(rateUnit, durationUnit, timestampFieldname, additionalFields));
+        objectMapper.registerModule(new MetricsElasticsearchModule(
+                config.rateUnit, config.durationUnit, config.timestampFieldname, config.additionalFields));
         writer = objectMapper.writer();
         checkForIndexTemplate();
     }
