@@ -130,7 +130,8 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
     @Test
     public void testCounter() throws Exception {
-        final Counter evictions = registry.counter(name("test", "cache-evictions"));
+        final String counterName = name("test", "cache-evictions");
+        final Counter evictions = registry.counter(counterName);
         evictions.inc(25);
         reportAndRefresh();
 
@@ -139,8 +140,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
         assertTimestamp(hit);
-        assertKey(hit, "count", 25);
-        assertKey(hit, "name", prefix + ".test.cache-evictions");
+        assertKey(hit, name(prefix, counterName));
         assertKey(hit, "host", "localhost");
     }
 
@@ -156,12 +156,12 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
         assertTimestamp(hit);
-        assertKey(hit, "name", prefix + ".foo.bar");
-        assertKey(hit, "count", 2);
-        assertKey(hit, "max", 40);
-        assertKey(hit, "min", 20);
-        assertKey(hit, "mean", 30.0);
-        assertKey(hit, "host", "localhost");
+        assertKeyAndMap(hit, prefix + ".foo.bar")
+        .has("count", 2)
+        .has("max", 40)
+        .has("min", 20)
+        .has("mean", 30.0)
+        .has("host", "localhost");
     }
 
     @Test
@@ -176,9 +176,9 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
         assertTimestamp(hit);
-        assertKey(hit, "name", prefix + ".foo.bar");
-        assertKey(hit, "count", 30);
-        assertKey(hit, "host", "localhost");
+        assertKeyAndMap(hit, prefix + ".foo.bar")
+        .has("count", 30)
+        .has("host", "localhost");
     }
 
     @Test
@@ -194,9 +194,9 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
         assertTimestamp(hit);
-        assertKey(hit, "name", prefix + ".foo.bar");
-        assertKey(hit, "count", 1);
-        assertKey(hit, "host", "localhost");
+        assertKeyAndMap(hit, prefix + ".foo.bar")
+        .has("count", 1)
+        .has("host", "localhost");
     }
 
     @Test
@@ -214,8 +214,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
         assertTimestamp(hit);
-        assertKey(hit, "name", prefix + ".foo.bar");
-        assertKey(hit, "value", 1234);
+        assertKey(hit, prefix + ".foo.bar", 1234);
         assertKey(hit, "host", "localhost");
     }
 
@@ -252,12 +251,14 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
     @Test
     public void testThatPercolationNotificationWorks() throws IOException, InterruptedException {
+        final String counterName = "foo";
+        final String fieldName = name(prefix, counterName);
         SimpleNotifier notifier = new SimpleNotifier();
 
         MetricFilter percolationFilter = new MetricFilter() {
             @Override
             public boolean matches(String name, Metric metric) {
-                return name.startsWith(prefix + ".foo");
+                return name.startsWith(fieldName);
             }
         };
         elasticsearchReporter = createElasticsearchReporterBuilder()
@@ -265,12 +266,12 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
                 .percolationNotifier(notifier)
             .build();
 
-        final Counter evictions = registry.counter("foo");
+        final Counter evictions = registry.counter(counterName);
         evictions.inc(18);
         reportAndRefresh();
 
         QueryBuilder queryBuilder = QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(),
-                FilterBuilders.andFilter(FilterBuilders.rangeFilter("count").gte(20), FilterBuilders.termFilter("name", prefix + ".foo")));
+                FilterBuilders.rangeFilter(fieldName).gte(20));
         String json = String.format("{ \"query\" : %s }", queryBuilder.buildAsBytes().toUtf8());
         client().prepareIndex(indexWithDate, ".percolator", "myName").setRefresh(true).setSource(json).execute().actionGet();
 
@@ -351,8 +352,18 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
     }
 
     private void assertKey(Map<String, Object> hit, String key, String value) {
-        assertThat(hit, hasKey(key));
+        assertKey(hit, key);
         assertThat(hit.get(key).toString(), is(value));
+    }
+
+    private void assertKey(Map<String, Object> hit, String key) {
+        assertThat(hit, hasKey(key));
+    }
+    private MapChecker assertKeyAndMap(Map<String, Object> hit, String key) {
+        assertThat(hit, hasKey(key));
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> subMap = (Map<String, Object>) hit.get(key);
+        return new MapChecker(subMap);
     }
 
     private void assertTimestamp(Map<String, Object> hit) {
@@ -380,5 +391,23 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
                 .filter(MetricFilter.ALL)
                 .index(index)
                 .additionalFields(additionalFields);
+    }
+    private class MapChecker {
+        private final Map<String, Object> theMap;
+        private MapChecker(Map<String, Object> theMap) {
+            this.theMap = theMap;
+        }
+        public MapChecker has(String key, double value) {
+            assertKey(theMap, key, value);
+            return this;
+        }
+        public MapChecker has(String key, int value) {
+            assertKey(theMap, key, value);
+            return this;
+        }
+        public MapChecker has(String key, String value) {
+            assertKey(theMap, key, value);
+            return this;
+        }
     }
 }
