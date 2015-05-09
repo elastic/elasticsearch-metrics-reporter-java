@@ -104,7 +104,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
     @Test
     public void testThatTemplateIsNotOverWritten() throws Exception {
-        client().admin().indices().preparePutTemplate("metrics_template").setTemplate("foo*").setSettings(String.format("{ \"index.number_of_shards\" : \"1\"}")).execute().actionGet();
+        client().admin().indices().preparePutTemplate("metrics_template").setTemplate("foo*").setSettings("{ \"index.number_of_shards\" : \"1\"}").execute().actionGet();
         //client().admin().cluster().prepareHealth().setWaitForGreenStatus();
 
         elasticsearchReporter = createElasticsearchReporterBuilder().build();
