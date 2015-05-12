@@ -40,6 +40,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
@@ -62,6 +63,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
     @Before
     public void setup() throws IOException {
         elasticsearchReporter = createElasticsearchReporterBuilder().build();
+        expectedHostname = InetAddress.getLocalHost().getHostName();
     }
 
     @Test
@@ -142,7 +144,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
         assertTimestamp(hit);
         assertKey(hit, name(prefix, counterName));
-        assertKey(hit, "host", "localhost");
+        assertKey(hit, "host", expectedHostname);
     }
 
     @Test
@@ -162,7 +164,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         .has("max", 40)
         .has("min", 20)
         .has("mean", 30.0)
-        .has("host", "localhost");
+        .has("host", expectedHostname);
     }
 
     @Test
@@ -179,7 +181,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         assertTimestamp(hit);
         assertKeyAndMap(hit, prefix + ".foo.bar")
         .has("count", 30)
-        .has("host", "localhost");
+        .has("host", expectedHostname);
     }
 
     @Test
@@ -197,7 +199,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         assertTimestamp(hit);
         assertKeyAndMap(hit, prefix + ".foo.bar")
         .has("count", 1)
-        .has("host", "localhost");
+        .has("host", expectedHostname);
     }
 
     @Test
@@ -216,7 +218,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
         assertTimestamp(hit);
         assertKey(hit, prefix + ".foo.bar", 1234);
-        assertKey(hit, "host", "localhost");
+        assertKey(hit, "host", expectedHostname);
     }
 
     @Test
@@ -383,7 +385,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
     private ElasticsearchReporter.Builder createElasticsearchReporterBuilder() {
         Map<String, Object> additionalFields = new HashMap<>();
-        additionalFields.put("host", "localhost");
+        additionalFields.put("host", expectedHostname);
         return ElasticsearchReporter.forRegistry(registry)
                 .hosts("localhost:" + getPortOfRunningNode())
                 .prefixedWith(prefix)
