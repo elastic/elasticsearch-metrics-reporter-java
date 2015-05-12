@@ -54,9 +54,10 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
     private ElasticsearchReporter elasticsearchReporter;
     private MetricRegistry registry = new MetricRegistry();
-    private String index = randomAsciiOfLength(12).toLowerCase();
+    private String index = randomAsciiOfLength(12).replaceAll("[^A-Za-z0-9]", "_").toLowerCase();
     private String indexWithDate = String.format("%s-%s-%02d", index, Calendar.getInstance().get(Calendar.YEAR), Calendar.getInstance().get(Calendar.MONTH)+1);
-    private String prefix = randomAsciiOfLength(12).toLowerCase();
+    private String prefix = randomAsciiOfLength(12).replaceAll("[^A-Za-z0-9]", "_").toLowerCase();
+    private String expectedHostname;
 
     @Before
     public void setup() throws IOException {
