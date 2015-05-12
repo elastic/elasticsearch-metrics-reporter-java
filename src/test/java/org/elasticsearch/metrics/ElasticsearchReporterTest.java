@@ -222,6 +222,32 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
     }
 
     @Test
+    public void testGaugeWithCustomHostname() throws Exception {
+        final String fakeHostname = "yankee-doodle";
+        final String metric = name("foo", "baz");
+        final String outputMetric = name(prefix, metric);
+
+        elasticsearchReporter = createElasticsearchReporterBuilder()
+                .withHostname(fakeHostname)
+                .build();
+        registry.register(metric, new Gauge<Integer>() {
+            @Override
+            public Integer getValue() {
+                return 1234;
+            }
+        });
+        reportAndRefresh();
+
+        SearchResponse searchResponse = client().prepareSearch(indexWithDate).setTypes("gauge").execute().actionGet();
+        assertThat(searchResponse.getHits().totalHits(), is(1l));
+
+        Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
+        assertTimestamp(hit);
+        assertKey(hit, outputMetric, 1234);
+        assertKey(hit, "host", fakeHostname);
+    }
+
+    @Test
     public void testThatSpecifyingSeveralHostsWork() throws Exception {
         elasticsearchReporter = createElasticsearchReporterBuilder().hosts("localhost:10000", "localhost:" + getPortOfRunningNode()).build();
 
