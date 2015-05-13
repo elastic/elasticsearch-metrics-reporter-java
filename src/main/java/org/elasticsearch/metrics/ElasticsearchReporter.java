@@ -66,7 +66,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
         private String hostName;
         private boolean sendHostname = true;
         private Map<String, Object> additionalFields;
-        private boolean saveEntryOnInstantiation = false;
+        private boolean saveEntryOnInstantiation;
 
         private Builder(MetricRegistry registry) {
             this.registry = registry;
@@ -262,8 +262,8 @@ public class ElasticsearchReporter extends ScheduledReporter {
     private MetricFilter percolationFilter;
     private Notifier notifier;
     private String currentIndexName;
-    private SimpleDateFormat indexDateFormat = null;
-    private boolean checkedForIndexTemplate = false;
+    private SimpleDateFormat indexDateFormat;
+    private boolean checkedForIndexTemplate;
     private boolean saveEntryOnInstantiation;
 
     public ElasticsearchReporter(Builder config)
