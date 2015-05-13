@@ -2,27 +2,32 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.sonatype.oss</groupId>
+        <artifactId>oss-parent</artifactId>
+        <version>7</version>
+    </parent>
 
     <groupId>com.radius</groupId>
     <artifactId>metrics-elasticsearch-reporter</artifactId>
-    <version>2.3.1</version>
+    <version>2.3.4-SNAPSHOT</version>
+    <packaging>jar</packaging>
 
     <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <lucene.version>4.10.2</lucene.version>
         <elasticsearch.version>1.4.2</elasticsearch.version>
     </properties>
 
-
-    <modelVersion>4.0.0</modelVersion>
-    <packaging>jar</packaging>
     <name>metrics-elasticsearch-reporter</name>
     <description>Reporter for the metrics library which reports into Elasticsearch</description>
     <inceptionYear>2013</inceptionYear>
 
     <scm>
-        <connection>scm:git:git@github.com:elasticsearch/elasticsearch-metrics-reporter-java.git</connection>
-        <developerConnection>scm:git:git@github.com:elasticsearch/elasticsearch-metrics-reporter-java.git</developerConnection>
-        <url>http://github.com/elasticsearch/elasticsearch-metrics-reporter</url>
+        <connection>scm:git:git@github.com:RadiusIntelligence/elasticsearch-metrics-reporter-java.git</connection>
+        <developerConnection>scm:git:git@github.com:RadiusIntelligence/elasticsearch-metrics-reporter-java.git</developerConnection>
+        <url>http://github.com/RadiusIntelligence/elasticsearch-metrics-reporter-java</url>
     </scm>
 
     <licenses>
@@ -33,22 +38,9 @@
         </license>
     </licenses>
 
-    <parent>
-        <groupId>org.sonatype.oss</groupId>
-        <artifactId>oss-parent</artifactId>
-        <version>7</version>
-    </parent>
-
-    <repositories>
-        <repository>
-            <id>sonatype</id>
-            <url>http://oss.sonatype.org/content/repositories/releases/</url>
-        </repository>
-    </repositories>
-
     <issueManagement>
         <system>GitHub</system>
-        <url>https://github.com/elasticsearchi/elasticsearch-metrics-reporter-java/issues/</url>
+        <url>https://github.com/RadiusIntelligence/elasticsearch-metrics-reporter-java/issues/</url>
     </issueManagement>
 
     <build>
@@ -58,6 +50,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>2.3.2</version>
                 <configuration>
+                    <debug>true</debug>
                     <source>1.7</source>
                     <target>1.7</target>
                 </configuration>
@@ -89,6 +82,7 @@
             <artifactId>jackson-databind</artifactId>
             <version>2.4.3</version>
         </dependency>
+        <!-- /// TEST DEPENDENCIES /// -->
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-test-framework</artifactId>
@@ -139,6 +133,13 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <repositories>
+        <repository>
+            <id>sonatype</id>
+            <url>http://oss.sonatype.org/content/repositories/releases/</url>
+        </repository>
+    </repositories>
 
     <distributionManagement>
         <repository>

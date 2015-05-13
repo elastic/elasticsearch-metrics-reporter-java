@@ -31,9 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
+import java.net.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -64,8 +62,11 @@ public class ElasticsearchReporter extends ScheduledReporter {
         private MetricFilter percolationFilter;
         private int timeout = 1000;
         private String timestampFieldname = "@timestamp";
+        private String hostnameField = "host";
+        private String hostName;
+        private boolean sendHostname = true;
         private Map<String, Object> additionalFields;
-        private boolean saveEntryOnInstantiation = false;
+        private boolean saveEntryOnInstantiation;
 
         private Builder(MetricRegistry registry) {
             this.registry = registry;
@@ -79,6 +80,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
         /**
          * Inject your custom definition of how time passes. Usually the default clock is sufficient
          */
+        @SuppressWarnings("unused")
         public Builder withClock(Clock clock) {
             this.clock = clock;
             return this;
@@ -131,6 +133,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
         /**
          * The timeout to wait for until a connection attempt is and the next host is tried
          */
+        @SuppressWarnings("unused")
         public Builder timeout(int timeout) {
             this.timeout = timeout;
             return this;
@@ -156,6 +159,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
         /**
          * The bulk size per request, defaults to 2500 (as metrics are quite small)
          */
+        @SuppressWarnings("unused")
         public Builder bulkSize(int bulkSize) {
             this.bulkSize = bulkSize;
             return this;
@@ -185,10 +189,37 @@ public class ElasticsearchReporter extends ScheduledReporter {
             return this;
         }
 
+        /** Configure the name of the hostname field, instead of {@code host}. */
+        @SuppressWarnings("unused")
+        public Builder hostnameFieldname(String value) {
+            this.hostnameField = value;
+            return this;
+        }
+
+        /** Set the hostname sending the provided hostname in {@code host}.*/
+        public Builder withHostname(String hostname) {
+            hostName = hostname;
+            return this;
+        }
+
+        /**
+         * Uses the traditional {@link InetAddress#getLocalHost()} mechanism to sniff the hostname,
+         * sending it in the field used by {@link #withHostname(String)}.
+         */
+        public Builder withMyHostname() throws UnknownHostException {
+            final String hostName = InetAddress.getLocalHost().getHostName();
+            return this.withHostname(hostName);
+        }
+
+        /** Disables the default option of sending along the hostname. */
+        @SuppressWarnings("unused")
+        public Builder withoutHostname() {
+            this.sendHostname = false;
+            return this;
+        }
+
         /**
          * Additional fields to be included for each metric
-         * @param additionalFields
-         * @return
          */
         public Builder additionalFields(Map<String, Object> additionalFields) {
             this.additionalFields = additionalFields;
@@ -196,32 +227,25 @@ public class ElasticsearchReporter extends ScheduledReporter {
         }
 
         /**
-         * Custom method. On save log start up time.
-         *
-         * @return Builder
+         * Custom method to save log start up time.
          */
+        @SuppressWarnings("unused")
         public Builder saveEntryOnInstantiation(boolean saveEntryOnInstantiation) {
             this.saveEntryOnInstantiation = saveEntryOnInstantiation;
             return this;
         }
 
         public ElasticsearchReporter build() throws IOException {
-            return new ElasticsearchReporter(registry,
-                    hosts,
-                    timeout,
-                    index,
-                    indexDateFormat,
-                    bulkSize,
-                    clock,
-                    prefix,
-                    rateUnit,
-                    durationUnit,
-                    filter,
-                    percolationFilter,
-                    percolationNotifier,
-                    timestampFieldname,
-                    saveEntryOnInstantiation,
-                    additionalFields);
+            if (sendHostname) {
+                if (null == hostName) {
+                    withMyHostname();
+                }
+                if (null == additionalFields) {
+                    additionalFields = new HashMap<>();
+                }
+                additionalFields.put(hostnameField, hostName);
+            }
+            return new ElasticsearchReporter(this);
         }
     }
 
@@ -238,36 +262,31 @@ public class ElasticsearchReporter extends ScheduledReporter {
     private MetricFilter percolationFilter;
     private Notifier notifier;
     private String currentIndexName;
-    private SimpleDateFormat indexDateFormat = null;
-    private boolean checkedForIndexTemplate = false;
+    private SimpleDateFormat indexDateFormat;
+    private boolean checkedForIndexTemplate;
     private boolean saveEntryOnInstantiation;
 
-    public ElasticsearchReporter(MetricRegistry registry, String[] hosts, int timeout,
-                                 String index, String indexDateFormat, int bulkSize, Clock clock, String prefix,
-                                 TimeUnit rateUnit, TimeUnit durationUnit,
-                                 MetricFilter filter, MetricFilter percolationFilter, Notifier percolationNotifier,
-                                 String timestampFieldname,
-                                 boolean saveEntryOnInstantiation, Map<String, Object> additionalFields)
+    public ElasticsearchReporter(Builder config)
             throws MalformedURLException {
-        super(registry, "elasticsearch-reporter", filter, rateUnit, durationUnit);
-        this.hosts = hosts;
-        this.index = index;
-        this.bulkSize = bulkSize;
-        this.clock = clock;
-        this.prefix = prefix;
-        this.timeout = timeout;
-        this.saveEntryOnInstantiation = saveEntryOnInstantiation;
+        super(config.registry, "elasticsearch-reporter", config.filter, config.rateUnit, config.durationUnit);
+        this.hosts = config.hosts;
+        this.index = config.index;
+        this.bulkSize = config.bulkSize;
+        this.clock = config.clock;
+        this.prefix = config.prefix;
+        this.timeout = config.timeout;
+        this.saveEntryOnInstantiation = config.saveEntryOnInstantiation;
 
-        if (indexDateFormat != null && indexDateFormat.length() > 0) {
-            this.indexDateFormat = new SimpleDateFormat(indexDateFormat);
+        if (config.indexDateFormat != null && config.indexDateFormat.length() > 0) {
+            this.indexDateFormat = new SimpleDateFormat(config.indexDateFormat);
         }
-        if (percolationNotifier != null && percolationFilter != null) {
-            this.percolationFilter = percolationFilter;
-            this.notifier = percolationNotifier;
+        if (config.percolationNotifier != null && config.percolationFilter != null) {
+            this.percolationFilter = config.percolationFilter;
+            this.notifier = config.percolationNotifier;
         }
-        if (timestampFieldname == null || timestampFieldname.trim().length() == 0) {
-            LOGGER.error("Timestampfieldname {} is not valid, using default @timestamp", timestampFieldname);
-            timestampFieldname = "@timestamp";
+        if (config.timestampFieldname == null || config.timestampFieldname.trim().length() == 0) {
+            LOGGER.error("Timestampfieldname {} is not valid, using default @timestamp", config.timestampFieldname);
+            config.timestampFieldname = "@timestamp";
         }
 
         objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
@@ -275,7 +294,8 @@ public class ElasticsearchReporter extends ScheduledReporter {
         // auto closing means, that the objectmapper is closing after the first write call, which does not work for bulk requests
         objectMapper.configure(JsonGenerator.Feature.AUTO_CLOSE_JSON_CONTENT, false);
         objectMapper.configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false);
-        objectMapper.registerModule(new MetricsElasticsearchModule(rateUnit, durationUnit, timestampFieldname, additionalFields));
+        objectMapper.registerModule(new MetricsElasticsearchModule(
+                config.rateUnit, config.durationUnit, config.timestampFieldname, config.additionalFields));
         writer = objectMapper.writer();
         checkForIndexTemplate();
     }
@@ -330,12 +350,12 @@ public class ElasticsearchReporter extends ScheduledReporter {
                 return;
             }
 
-            List<JsonMetric> percolationMetrics = new ArrayList<JsonMetric>();
+            List<JsonMetric> percolationMetrics = new ArrayList<>();
             AtomicInteger entriesWritten = new AtomicInteger(0);
 
             for (Map.Entry<String, Gauge> entry : gauges.entrySet()) {
                 if (entry.getValue().getValue() != null) {
-                    JsonMetric jsonMetric = new JsonGauge(name(prefix, entry.getKey()), timestamp, entry.getValue());
+                    JsonGauge jsonMetric = new JsonGauge(name(prefix, entry.getKey()), timestamp, entry.getValue());
                     connection = writeJsonMetricAndRecreateConnectionIfNeeded(jsonMetric, connection, entriesWritten);
                     addJsonMetricToPercolationIfMatching(jsonMetric, percolationMetrics);
                 }
@@ -424,10 +444,10 @@ public class ElasticsearchReporter extends ScheduledReporter {
         HttpURLConnection connection = openConnection("/" + currentIndexName + "/" + jsonMetric.type() + "/_percolate", "POST");
         if (connection == null) {
             LOGGER.error("Could not connect to any configured elasticsearch instances for percolation: {}", Arrays.asList(hosts));
-            return Collections.EMPTY_LIST;
+            return Collections.emptyList();
         }
 
-        Map<String, Object> data = new HashMap<String, Object>(1);
+        Map<String, Object> data = new HashMap<>(1);
         data.put("doc", jsonMetric);
         objectMapper.writeValue(connection.getOutputStream(), data);
         closeConnection(connection);
@@ -436,10 +456,12 @@ public class ElasticsearchReporter extends ScheduledReporter {
             throw new RuntimeException("Error percolating " + jsonMetric);
         }
 
-        Map<String, Object> input = objectMapper.readValue(connection.getInputStream(), Map.class);
-        List<String> matches = new ArrayList<String>();
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> input = objectMapper.readValue(connection.getInputStream(), Map.class);
+        List<String> matches = new ArrayList<>();
         if (input.containsKey("matches") && input.get("matches") instanceof List) {
-            List<Map<String, String>> foundMatches = (List<Map<String, String>>) input.get("matches");
+            @SuppressWarnings("unchecked")
+            final List<Map<String, String>> foundMatches = (List<Map<String, String>>) input.get("matches");
             for (Map<String, String> entry : foundMatches) {
                 if (entry.containsKey("_id")) {
                     matches.add(entry.get("_id"));
@@ -545,6 +567,10 @@ public class ElasticsearchReporter extends ScheduledReporter {
             if (isTemplateMissing) {
                 LOGGER.debug("No metrics template found in elasticsearch. Adding...");
                 HttpURLConnection putTemplateConnection = openConnection( "/_template/metrics_template", "PUT");
+                if (null == putTemplateConnection) {
+                    LOGGER.error("Could not connect to any configured elasticsearch instances: {}", Arrays.asList(hosts));
+                    return;
+                }
                 JsonGenerator json = new JsonFactory().createGenerator(putTemplateConnection.getOutputStream());
                 json.writeStartObject();
                 json.writeStringField("template", index + "*");
