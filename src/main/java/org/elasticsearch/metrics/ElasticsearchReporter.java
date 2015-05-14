@@ -370,7 +370,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
         try {
             HttpURLConnection connection = openConnection("/_bulk", "POST");
             if (connection == null) {
-                LOGGER.error("Could not connect to any configured elasticsearch instances: {}", Arrays.asList(hosts));
+                LOGGER.error("Could not connect to any configured elasticsearch instances: {}", Arrays.toString(hosts));
                 return;
             }
 
@@ -443,7 +443,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
                 HttpURLConnection connection = openConnection("/_bulk", "POST");
                 if (connection == null) {
                     LOGGER.error("Could not connect to any configured elasticsearch instances: {}",
-                            Arrays.asList(hosts));
+                            Arrays.toString(hosts));
                     return;
                 }
 
@@ -467,7 +467,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
     private List<String> getPercolationMatches(JsonMetric jsonMetric) throws IOException {
         HttpURLConnection connection = openConnection("/" + currentIndexName + "/" + jsonMetric.type() + "/_percolate", "POST");
         if (connection == null) {
-            LOGGER.error("Could not connect to any configured elasticsearch instances for percolation: {}", Arrays.asList(hosts));
+            LOGGER.error("Could not connect to any configured elasticsearch instances for percolation: {}", Arrays.toString(hosts));
             return Collections.emptyList();
         }
 
@@ -583,7 +583,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
         try {
             HttpURLConnection connection = openConnection( "/_template/metrics_template", "HEAD");
             if (connection == null) {
-                LOGGER.error("Could not connect to any configured elasticsearch instances: {}", Arrays.asList(hosts));
+                LOGGER.error("Could not connect to any configured elasticsearch instances: {}", Arrays.toString(hosts));
                 return;
             }
             connection.disconnect();
@@ -666,7 +666,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
         if (null == conn) {
             // openConnection logs the error, so just give what they gave and wish them luck
             LOGGER.warn("I am returning bootstrap-hosts because I could not connect to any of them: {}",
-                    Arrays.asList(bootstrapHosts));
+                    Arrays.toString(bootstrapHosts));
             return bootstrapHosts;
         }
         final List<String> discoveredHosts = new ArrayList<>();
