@@ -289,7 +289,11 @@ public class ElasticsearchReporter extends ScheduledReporter {
     public ElasticsearchReporter(Builder config)
             throws IOException {
         super(config.registry, "elasticsearch-reporter", config.filter, config.rateUnit, config.durationUnit);
-        this.hosts = (config.discoverClusterMembers) ? discoverClusterMembers(config.hosts) : config.hosts;
+        if (config.discoverClusterMembers) {
+            this.hosts = discoverClusterMembers(config.hosts);
+        } else {
+            this.hosts = config.hosts;
+        }
         this.index = config.index;
         this.bulkSize = config.bulkSize;
         this.clock = config.clock;
