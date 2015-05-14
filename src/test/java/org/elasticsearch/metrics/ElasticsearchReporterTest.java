@@ -80,7 +80,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         reportAndRefresh();
 
         // somehow the cluster state is not immediately updated... need to check
-        Thread.sleep(200);
+        Thread.sleep(500);
         ClusterStateResponse clusterStateResponse = client().admin().cluster().prepareState().setRoutingTable(false)
                 .setLocal(false)
                 .setNodes(true)
