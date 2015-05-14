@@ -28,9 +28,6 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.cluster.metadata.IndexTemplateMetaData;
 import org.elasticsearch.common.joda.time.format.ISODateTimeFormat;
-import org.elasticsearch.common.transport.InetSocketTransportAddress;
-import org.elasticsearch.common.transport.TransportAddress;
-import org.elasticsearch.http.HttpServerTransport;
 import org.elasticsearch.index.query.FilterBuilders;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -41,6 +38,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
@@ -402,11 +400,10 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
     }
 
     private int getPortOfRunningNode() {
-        TransportAddress transportAddress = internalCluster().getInstance(HttpServerTransport.class).boundAddress().boundAddress();
-        if (transportAddress instanceof InetSocketTransportAddress) {
-            return ((InetSocketTransportAddress) transportAddress).address().getPort();
-        }
-        throw new ElasticsearchException("Could not find running tcp port");
+        final InetSocketAddress[] addresses = internalCluster().httpAddresses();
+        assertNotNull("Must not return NULL httpAddresses", addresses);
+        assertNotEquals("httpAddress must not be empty", 0, addresses.length);
+        return addresses[0].getPort();
     }
 
     private ElasticsearchReporter.Builder createElasticsearchReporterBuilder() {
