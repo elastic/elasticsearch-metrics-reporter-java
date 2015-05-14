@@ -695,8 +695,6 @@ public class ElasticsearchReporter extends ScheduledReporter {
             conn.disconnect();
         }
         LOGGER.info("Discovered cluster members: {}", discoveredHosts);
-        final String[] results = new String[discoveredHosts.size()];
-        discoveredHosts.toArray(results);
-        return results;
+        return discoveredHosts.toArray(new String[discoveredHosts.size()]);
     }
 }
