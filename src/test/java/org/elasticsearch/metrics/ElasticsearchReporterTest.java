@@ -24,7 +24,9 @@ import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
 import org.elasticsearch.action.admin.cluster.node.stats.NodesStatsResponse;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
 import org.elasticsearch.action.admin.indices.template.get.GetIndexTemplatesResponse;
+import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.cluster.metadata.IndexTemplateMetaData;
 import org.elasticsearch.common.joda.time.format.ISODateTimeFormat;
@@ -32,11 +34,15 @@ import org.elasticsearch.index.query.FilterBuilders;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.metrics.percolation.Notifier;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.test.ElasticsearchIntegrationTest;
+import org.elasticsearch.test.InternalTestCluster;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.Calendar;
@@ -344,6 +350,27 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         long connectionsAfterReporting = getTotalHttpConnections();
 
         assertThat(connectionsAfterReporting, is(connectionsBeforeReporting));
+    }
+
+    @Test
+    public void testDiscoveringClusterMembership() throws Exception {
+        final InternalTestCluster cluster = internalCluster();
+        cluster.ensureAtLeastNumDataNodes(3);
+        final int clusterSize = cluster.size();
+        assertTrue("expected at least a 3 node cluster: found "+clusterSize, clusterSize >= 3);
+
+        if (null != elasticsearchReporter) {
+            elasticsearchReporter.stop();
+        }
+        // build a fresh one with our increased cluster size
+        elasticsearchReporter = createElasticsearchReporterBuilder().build();
+
+        final Field hostField = ElasticsearchReporter.class.getDeclaredField("hosts");
+        hostField.setAccessible(true);
+        String[] hosts = (String[]) hostField.get(elasticsearchReporter);
+        assertNotNull("Expected .hosts to be non-null", hosts);
+        assertEquals(clusterSize, hosts.length);
+        elasticsearchReporter.stop();
     }
 
     private long getTotalHttpConnections() {

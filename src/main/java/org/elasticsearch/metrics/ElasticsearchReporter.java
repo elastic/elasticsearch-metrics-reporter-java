@@ -22,6 +22,7 @@ import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -30,12 +31,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.codahale.metrics.MetricRegistry.name;
 import static org.elasticsearch.metrics.JsonMetrics.*;
@@ -55,6 +59,8 @@ public class ElasticsearchReporter extends ScheduledReporter {
         private TimeUnit durationUnit;
         private MetricFilter filter;
         private String[] hosts = new String[]{"localhost:9200"};
+        /** Should I query the first node to find the rest of the cluster nodes? */
+        private boolean discoverClusterMembers = true;
         private String index = "metrics";
         private String indexDateFormat = "yyyy-MM";
         private int bulkSize = 2500;
@@ -127,6 +133,20 @@ public class ElasticsearchReporter extends ScheduledReporter {
          */
         public Builder hosts(String ... hosts) {
             this.hosts = hosts;
+            return this;
+        }
+
+        /** Disables cluster node discovery, relying entirely on the provided {@link #hosts(String...)}.*/
+        @SuppressWarnings("unused")
+        public Builder withoutNodeDiscovery() {
+            this.discoverClusterMembers = false;
+            return this;
+        }
+
+        /** Enables discovery of the other members of the cluster in which {@link #hosts(String...)} resides. */
+        @SuppressWarnings("unused")
+        public Builder withNodeDiscovery() {
+            this.discoverClusterMembers = true;
             return this;
         }
 
@@ -267,9 +287,9 @@ public class ElasticsearchReporter extends ScheduledReporter {
     private boolean saveEntryOnInstantiation;
 
     public ElasticsearchReporter(Builder config)
-            throws MalformedURLException {
+            throws IOException {
         super(config.registry, "elasticsearch-reporter", config.filter, config.rateUnit, config.durationUnit);
-        this.hosts = config.hosts;
+        this.hosts = (config.discoverClusterMembers) ? discoverClusterMembers(config.hosts) : config.hosts;
         this.index = config.index;
         this.bulkSize = config.bulkSize;
         this.clock = config.clock;
@@ -527,7 +547,10 @@ public class ElasticsearchReporter extends ScheduledReporter {
      * Open a new HttpUrlConnection, in case it fails it tries for the next host in the configured list
      */
     private HttpURLConnection openConnection(String uri, String method) {
-        for (String host : hosts) {
+        return openConnection(hosts, uri, method);
+    }
+    private HttpURLConnection openConnection(String[] hostList, String uri, String method) {
+        for (String host : hostList) {
             try {
                 URL templateUrl = new URL("http://" + host  + uri);
                 HttpURLConnection connection = ( HttpURLConnection ) templateUrl.openConnection();
@@ -601,5 +624,75 @@ public class ElasticsearchReporter extends ScheduledReporter {
         } catch (IOException e) {
             LOGGER.error("Error when checking/adding metrics template to elasticsearch", e);
         }
+    }
+
+    /**
+     * Contacts the bootstrap hosts and asks for their clustermates, returning the authoritative cluster
+     * member list.
+     * @param bootstrapHosts the initial members of the cluster to contact in order until one succeeds
+     * @return the list of discovered members of the cluster in which the {@code bootstrapHosts} reside.
+     * @throws IOException if unable to read from the target host
+     */
+    private String[] discoverClusterMembers(final String[] bootstrapHosts) throws IOException {
+        if (null == bootstrapHosts || 0 == bootstrapHosts.length) {
+            throw new IllegalStateException("I cannot operate without bootstrap hosts");
+        }
+        final int retries = 5;
+        IOException seen = null;
+        for (int i = 0; i < retries; i++) {
+            final String[] result;
+            try {
+                result = discoverClusterMembersAction(bootstrapHosts);
+            } catch (IOException ioe) {
+                LOGGER.warn("IOEx while in retry #{}", i, ioe);
+                seen = ioe;
+                continue;
+            }
+            return result;
+        }
+        throw seen;
+    }
+
+    /** This is split out from the shorter named function in order to facilitate retries. */
+    private String[] discoverClusterMembersAction(final String[] bootstrapHosts) throws IOException {
+        // "inet[/192.168.169.83:9202]"
+        final Pattern httpAddressToHostPortRE = Pattern.compile("[^\\[]*\\[/([^\\]]+)\\]");
+
+        final HttpURLConnection conn = openConnection(bootstrapHosts, "/_nodes", "GET");
+        if (null == conn) {
+            // openConnection logs the error, so just give what they gave and wish them luck
+            LOGGER.warn("I am returning bootstrap-hosts because I could not connect to any of them: {}",
+                    Arrays.asList(bootstrapHosts));
+            return bootstrapHosts;
+        }
+        final List<String> discoveredHosts = new ArrayList<>();
+        try {
+            final InputStream nodeStream = conn.getInputStream();
+            // all of the JsonNode javadoc indicates it will never return `null`, which explains the lack of checking
+            final JsonNode clusterNodes = objectMapper.readTree(nodeStream);
+            for (final JsonNode nodeObj : clusterNodes.get("nodes")) {
+                final String http_address = nodeObj.get("http_address").asText();
+                if (http_address.isEmpty()) {
+                    // drop the entire structure into the logs
+                    LOGGER.warn("Node {} has empty \"http_address\": <<{}>>", nodeObj);
+                    // but send along a shorter message to sentry
+                    LOGGER.error("Node {} has empty \"http_address\"");
+                    continue;
+                }
+                final Matcher ma = httpAddressToHostPortRE.matcher(http_address);
+                if (! ma.find()) {
+                    LOGGER.error("Unexpected \"http_address\" format: <<{}>>", http_address);
+                    continue;
+                }
+                final String hostPort = ma.group(1);
+                discoveredHosts.add(hostPort);
+            }
+        } finally {
+            conn.disconnect();
+        }
+        LOGGER.info("Discovered cluster members: {}", discoveredHosts);
+        final String[] results = new String[discoveredHosts.size()];
+        discoveredHosts.toArray(results);
+        return results;
     }
 }
