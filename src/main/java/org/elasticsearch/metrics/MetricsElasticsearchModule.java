@@ -18,7 +18,10 @@
  */
 package org.elasticsearch.metrics;
 
-import com.codahale.metrics.*;
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.Snapshot;
+import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.JsonSerializer;
@@ -62,12 +65,11 @@ public class MetricsElasticsearchModule extends Module {
                               JsonGenerator json,
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
-            json.writeStringField("name", gauge.name());
             json.writeObjectField(timestampFieldname, gauge.timestampAsDate());
             final Object value;
             try {
                 value = gauge.value().getValue();
-                json.writeObjectField("value", value);
+                json.writeObjectField(gauge.name(), value);
             } catch (RuntimeException e) {
                 json.writeObjectField("error", e.toString());
             }
@@ -91,9 +93,8 @@ public class MetricsElasticsearchModule extends Module {
                               JsonGenerator json,
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
-            json.writeStringField("name", counter.name());
             json.writeObjectField(timestampFieldname, counter.timestampAsDate());
-            json.writeNumberField("count", counter.value().getCount());
+            json.writeNumberField(counter.name(), counter.value().getCount());
             writeAdditionalFields(additionalFields, json);
             json.writeEndObject();
         }
@@ -115,8 +116,10 @@ public class MetricsElasticsearchModule extends Module {
                               JsonGenerator json,
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
-            json.writeStringField("name", jsonHistogram.name());
             json.writeObjectField(timestampFieldname, jsonHistogram.timestampAsDate());
+            json.writeFieldName(jsonHistogram.name());
+            json.writeStartObject();
+
             Histogram histogram = jsonHistogram.value();
 
             final Snapshot snapshot = histogram.getSnapshot();
@@ -133,6 +136,7 @@ public class MetricsElasticsearchModule extends Module {
 
             json.writeNumberField("stddev", snapshot.getStdDev());
             writeAdditionalFields(additionalFields, json);
+            json.writeEndObject();
             json.writeEndObject();
         }
     }
@@ -156,8 +160,9 @@ public class MetricsElasticsearchModule extends Module {
                               JsonGenerator json,
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
-            json.writeStringField("name", jsonMeter.name());
             json.writeObjectField(timestampFieldname, jsonMeter.timestampAsDate());
+            json.writeFieldName(jsonMeter.name());
+            json.writeStartObject();
             Meter meter = jsonMeter.value();
             json.writeNumberField("count", meter.getCount());
             json.writeNumberField("m1_rate", meter.getOneMinuteRate() * rateFactor);
@@ -166,6 +171,7 @@ public class MetricsElasticsearchModule extends Module {
             json.writeNumberField("mean_rate", meter.getMeanRate() * rateFactor);
             json.writeStringField("units", rateUnit);
             writeAdditionalFields(additionalFields, json);
+            json.writeEndObject();
             json.writeEndObject();
         }
     }
@@ -193,8 +199,9 @@ public class MetricsElasticsearchModule extends Module {
                               JsonGenerator json,
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
-            json.writeStringField("name", jsonTimer.name());
             json.writeObjectField(timestampFieldname, jsonTimer.timestampAsDate());
+            json.writeFieldName(jsonTimer.name());
+            json.writeStartObject();
             Timer timer = jsonTimer.value();
             final Snapshot snapshot = timer.getSnapshot();
             json.writeNumberField("count", timer.getCount());
@@ -229,6 +236,29 @@ public class MetricsElasticsearchModule extends Module {
             json.writeStringField("rate_units", rateUnit);
             writeAdditionalFields(additionalFields, json);
             json.writeEndObject();
+            json.writeEndObject();
+        }
+    }
+
+    private static class StartTimeSerializer extends StdSerializer<JsonStartTime> {
+        private final String timestampFieldname;
+        private final Map<String, Object> additionalFields;
+
+        public StartTimeSerializer(String timestampFieldname, Map<String, Object> additionalFields) {
+            super(JsonStartTime.class);
+            this.timestampFieldname = timestampFieldname;
+            this.additionalFields = additionalFields;
+        }
+
+        @Override
+        public void serialize(JsonStartTime jsonStartTime,
+                              JsonGenerator json,
+                              SerializerProvider provider) throws IOException {
+            json.writeStartObject();
+            json.writeObjectField(timestampFieldname, jsonStartTime.timestampAsDate());
+            json.writeNumberField(jsonStartTime.name(), jsonStartTime.value());
+            writeAdditionalFields(additionalFields, json);
+            json.writeEndObject();
         }
     }
 
@@ -238,7 +268,7 @@ public class MetricsElasticsearchModule extends Module {
      */
     private static class BulkIndexOperationHeaderSerializer extends StdSerializer<BulkIndexOperationHeader> {
 
-        public BulkIndexOperationHeaderSerializer(String timestampFieldname, Map<String, Object> additionalFields) {
+        public BulkIndexOperationHeaderSerializer() {
             super(BulkIndexOperationHeader.class);
         }
 
@@ -297,7 +327,8 @@ public class MetricsElasticsearchModule extends Module {
                 new HistogramSerializer(timestampFieldname, additionalFields),
                 new MeterSerializer(rateUnit, timestampFieldname, additionalFields),
                 new TimerSerializer(rateUnit, durationUnit, timestampFieldname, additionalFields),
-                new BulkIndexOperationHeaderSerializer(timestampFieldname, additionalFields)
+                new StartTimeSerializer(timestampFieldname, additionalFields),
+                new BulkIndexOperationHeaderSerializer()
         )));
     }
 
