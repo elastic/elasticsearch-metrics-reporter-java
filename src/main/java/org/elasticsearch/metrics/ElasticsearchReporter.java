@@ -25,6 +25,7 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 import org.elasticsearch.metrics.percolation.Notifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -256,6 +257,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
         // auto closing means, that the objectmapper is closing after the first write call, which does not work for bulk requests
         objectMapper.configure(JsonGenerator.Feature.AUTO_CLOSE_JSON_CONTENT, false);
         objectMapper.configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false);
+        objectMapper.registerModule(new AfterburnerModule());
         objectMapper.registerModule(new MetricsElasticsearchModule(rateUnit, durationUnit, timestampFieldname, additionalFields));
         writer = objectMapper.writer();
         checkForIndexTemplate();
