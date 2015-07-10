@@ -460,7 +460,8 @@ public class ElasticsearchReporter extends ScheduledReporter {
      */
     private void checkForIndexTemplate() {
         try {
-            HttpURLConnection connection = openConnection( "/_template/metrics_template", "HEAD");
+            String name = index + "_template";
+            HttpURLConnection connection = openConnection( "/_template/" + name, "HEAD");
             if (connection == null) {
                 LOGGER.error("Could not connect to any configured elasticsearch instances: {}", Arrays.asList(hosts));
                 return;
@@ -472,7 +473,11 @@ public class ElasticsearchReporter extends ScheduledReporter {
             // nothing there, lets create it
             if (isTemplateMissing) {
                 LOGGER.debug("No metrics template found in elasticsearch. Adding...");
-                HttpURLConnection putTemplateConnection = openConnection( "/_template/metrics_template", "PUT");
+                HttpURLConnection putTemplateConnection = openConnection( "/_template/" + name, "PUT");
+                if (putTemplateConnection == null) {
+                    LOGGER.error("Could not connect to any configured elasticsearch instances: {}", Arrays.asList(hosts));
+                    return;
+                }
                 JsonGenerator json = new JsonFactory().createGenerator(putTemplateConnection.getOutputStream());
                 json.writeStartObject();
                 json.writeStringField("template", index + "*");
