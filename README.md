@@ -59,7 +59,7 @@ incomingRequestsMeter.mark(1);
 
 ### Mapping
 
-**Note**: The reporter automatically checks for the existence of an index template called `metrics_template`. If this template does not exist, it is created. This template ensures that all strings used in metrics are set to `not_analyzed` and disables the `_all` field.
+**Note**: The reporter automatically checks for the existence of an index template, defaults to `metrics_template`. If this template does not exist, it is created. This template ensures that all strings used in metrics are set to `not_analyzed` and disables the `_all` field.
 
 
 ## Notifications with percolations

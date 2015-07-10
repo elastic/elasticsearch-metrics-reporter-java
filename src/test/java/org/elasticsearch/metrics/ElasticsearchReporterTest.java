@@ -76,7 +76,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
     @Test
     public void testThatTemplateIsAdded() throws Exception {
-        GetIndexTemplatesResponse response = client().admin().indices().prepareGetTemplates("metrics_template").get();
+        GetIndexTemplatesResponse response = client().admin().indices().prepareGetTemplates(index + "_template").get();
 
         assertThat(response.getIndexTemplates(), hasSize(1));
         IndexTemplateMetaData templateData = response.getIndexTemplates().get(0);
@@ -114,12 +114,12 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
     @Test
     public void testThatTemplateIsNotOverWritten() throws Exception {
-        client().admin().indices().preparePutTemplate("metrics_template").setTemplate("foo*").setSettings(String.format("{ \"index.number_of_shards\" : \"1\"}")).execute().actionGet();
+        client().admin().indices().preparePutTemplate(index + "_template").setTemplate("foo*").setSettings(String.format("{ \"index.number_of_shards\" : \"1\"}")).execute().actionGet();
         //client().admin().cluster().prepareHealth().setWaitForGreenStatus();
 
         elasticsearchReporter = createElasticsearchReporterBuilder().build();
 
-        GetIndexTemplatesResponse response = client().admin().indices().prepareGetTemplates("metrics_template").get();
+        GetIndexTemplatesResponse response = client().admin().indices().prepareGetTemplates(index + "_template").get();
 
         assertThat(response.getIndexTemplates(), hasSize(1));
         IndexTemplateMetaData templateData = response.getIndexTemplates().get(0);
