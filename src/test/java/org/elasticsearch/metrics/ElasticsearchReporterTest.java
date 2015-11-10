@@ -18,7 +18,14 @@
  */
 package org.elasticsearch.metrics;
 
-import com.codahale.metrics.*;
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.Gauge;
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.Metric;
+import com.codahale.metrics.MetricFilter;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
 import org.elasticsearch.action.admin.cluster.node.stats.NodesStatsResponse;
@@ -27,17 +34,16 @@ import org.elasticsearch.action.admin.indices.template.get.GetIndexTemplatesResp
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.cluster.metadata.IndexTemplateMetaData;
-import org.elasticsearch.common.joda.time.format.ISODateTimeFormat;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.http.HttpServerTransport;
-import org.elasticsearch.index.query.FilterBuilders;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.metrics.percolation.Notifier;
-import org.elasticsearch.node.internal.InternalNode;
-import org.elasticsearch.test.ElasticsearchIntegrationTest;
+import org.elasticsearch.node.Node;
+import org.elasticsearch.test.ESIntegTestCase;
+import org.joda.time.format.ISODateTimeFormat;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -48,24 +54,26 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
-import static org.elasticsearch.common.settings.ImmutableSettings.settingsBuilder;
-import static org.hamcrest.CoreMatchers.*;
+import static org.elasticsearch.common.settings.Settings.settingsBuilder;
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 
-public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
+public class ElasticsearchReporterTest extends ESIntegTestCase {
 
     private ElasticsearchReporter elasticsearchReporter;
     private MetricRegistry registry = new MetricRegistry();
     private String index = randomAsciiOfLength(12).toLowerCase();
-    private String indexWithDate = String.format("%s-%s-%02d", index, Calendar.getInstance().get(Calendar.YEAR), Calendar.getInstance().get(Calendar.MONTH)+1);
+    private String indexWithDate = String.format("%s-%s-%02d", index, Calendar.getInstance().get(Calendar.YEAR), Calendar.getInstance().get(Calendar.MONTH) + 1);
     private String prefix = randomAsciiOfLength(12).toLowerCase();
 
     @Override
     protected Settings nodeSettings(int nodeOrdinal) {
         return settingsBuilder()
                 .put(super.nodeSettings(nodeOrdinal))
-                .put(InternalNode.HTTP_ENABLED, true)
+                .put(Node.HTTP_ENABLED, true)
                 .build();
     }
 
@@ -106,6 +114,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         assertThat(mapping.get("index").toString(), is("not_analyzed"));
     }
 
+    @SuppressWarnings("unchecked")
     private Map<String, Object> getAsMap(Map<String, Object> map, String key) {
         assertThat(map, hasKey(key));
         assertThat(map.get(key), instanceOf(Map.class));
@@ -114,8 +123,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
     @Test
     public void testThatTemplateIsNotOverWritten() throws Exception {
-        client().admin().indices().preparePutTemplate("metrics_template").setTemplate("foo*").setSettings(String.format("{ \"index.number_of_shards\" : \"1\"}")).execute().actionGet();
-        //client().admin().cluster().prepareHealth().setWaitForGreenStatus();
+        client().admin().indices().preparePutTemplate("metrics_template").setTemplate("foo*").setSettings("{ \"index.number_of_shards\" : \"1\"}").execute().actionGet();
 
         elasticsearchReporter = createElasticsearchReporterBuilder().build();
 
@@ -135,7 +143,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         reportAndRefresh();
 
         SearchResponse searchResponse = client().prepareSearch(index).setTypes("counter").execute().actionGet();
-        assertThat(searchResponse.getHits().totalHits(), is(1l));
+        assertThat(searchResponse.getHits().totalHits(), is(1L));
     }
 
     @Test
@@ -145,7 +153,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         reportAndRefresh();
 
         SearchResponse searchResponse = client().prepareSearch(indexWithDate).setTypes("counter").execute().actionGet();
-        assertThat(searchResponse.getHits().totalHits(), is(1l));
+        assertThat(searchResponse.getHits().totalHits(), is(1L));
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
         assertTimestamp(hit);
@@ -162,7 +170,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         reportAndRefresh();
 
         SearchResponse searchResponse = client().prepareSearch(indexWithDate).setTypes("histogram").execute().actionGet();
-        assertThat(searchResponse.getHits().totalHits(), is(1l));
+        assertThat(searchResponse.getHits().totalHits(), is(1L));
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
         assertTimestamp(hit);
@@ -182,7 +190,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         reportAndRefresh();
 
         SearchResponse searchResponse = client().prepareSearch(indexWithDate).setTypes("meter").execute().actionGet();
-        assertThat(searchResponse.getHits().totalHits(), is(1l));
+        assertThat(searchResponse.getHits().totalHits(), is(1L));
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
         assertTimestamp(hit);
@@ -200,7 +208,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         reportAndRefresh();
 
         SearchResponse searchResponse = client().prepareSearch(indexWithDate).setTypes("timer").execute().actionGet();
-        assertThat(searchResponse.getHits().totalHits(), is(1l));
+        assertThat(searchResponse.getHits().totalHits(), is(1L));
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
         assertTimestamp(hit);
@@ -220,7 +228,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         reportAndRefresh();
 
         SearchResponse searchResponse = client().prepareSearch(indexWithDate).setTypes("gauge").execute().actionGet();
-        assertThat(searchResponse.getHits().totalHits(), is(1l));
+        assertThat(searchResponse.getHits().totalHits(), is(1L));
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
         assertTimestamp(hit);
@@ -237,7 +245,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         reportAndRefresh();
 
         SearchResponse searchResponse = client().prepareSearch(indexWithDate).setTypes("counter").execute().actionGet();
-        assertThat(searchResponse.getHits().totalHits(), is(1l));
+        assertThat(searchResponse.getHits().totalHits(), is(1L));
     }
 
     @Test
@@ -250,14 +258,14 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
     @Test
     public void testThatBulkIndexingWorks() {
-        for (int i = 0 ; i < 2020; i++) {
+        for (int i = 0; i < 2020; i++) {
             final Counter evictions = registry.counter(name("foo", "bar", String.valueOf(i)));
             evictions.inc(i);
         }
         reportAndRefresh();
 
         SearchResponse searchResponse = client().prepareSearch(indexWithDate).setTypes("counter").execute().actionGet();
-        assertThat(searchResponse.getHits().totalHits(), is(2020l));
+        assertThat(searchResponse.getHits().totalHits(), is(2020L));
     }
 
     @Test
@@ -273,14 +281,19 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         elasticsearchReporter = createElasticsearchReporterBuilder()
                 .percolationFilter(percolationFilter)
                 .percolationNotifier(notifier)
-            .build();
+                .build();
 
         final Counter evictions = registry.counter("foo");
         evictions.inc(18);
         reportAndRefresh();
 
-        QueryBuilder queryBuilder = QueryBuilders.filteredQuery(QueryBuilders.matchAllQuery(),
-                FilterBuilders.andFilter(FilterBuilders.rangeFilter("count").gte(20), FilterBuilders.termFilter("name", prefix + ".foo")));
+        QueryBuilder queryBuilder = QueryBuilders.boolQuery()
+                .must(QueryBuilders.matchAllQuery())
+                .filter(
+                        QueryBuilders.boolQuery()
+                                .must(QueryBuilders.rangeQuery("count").gte(20))
+                                .must(QueryBuilders.termQuery("name", prefix + ".foo"))
+                );
         String json = String.format("{ \"query\" : %s }", queryBuilder.buildAsBytes().toUtf8());
         client().prepareIndex(indexWithDate, ".percolator", "myName").setRefresh(true).setSource(json).execute().actionGet();
 
@@ -313,7 +326,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
         reportAndRefresh();
 
         SearchResponse searchResponse = client().prepareSearch(indexWithDate).setTypes("counter").execute().actionGet();
-        assertThat(searchResponse.getHits().totalHits(), is(1l));
+        assertThat(searchResponse.getHits().totalHits(), is(1L));
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
         assertThat(hit, hasKey("myTimeStampField"));
@@ -339,7 +352,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
 
     private class SimpleNotifier implements Notifier {
 
-        public Map<String, JsonMetrics.JsonMetric> metrics = new HashMap<String, JsonMetrics.JsonMetric>();
+        public Map<String, JsonMetrics.JsonMetric> metrics = new HashMap<>();
 
         @Override
         public void notify(JsonMetrics.JsonMetric jsonMetric, String match) {
@@ -372,7 +385,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
     }
 
     private int getPortOfRunningNode() {
-        TransportAddress transportAddress = internalCluster().getInstance(HttpServerTransport.class).boundAddress().boundAddress();
+        TransportAddress transportAddress = internalCluster().getInstance(HttpServerTransport.class).boundAddress().publishAddress();
         if (transportAddress instanceof InetSocketTransportAddress) {
             return ((InetSocketTransportAddress) transportAddress).address().getPort();
         }
@@ -380,7 +393,7 @@ public class ElasticsearchReporterTest extends ElasticsearchIntegrationTest {
     }
 
     private ElasticsearchReporter.Builder createElasticsearchReporterBuilder() {
-        Map<String, Object> additionalFields = new HashMap<String, Object>();
+        Map<String, Object> additionalFields = new HashMap<>();
         additionalFields.put("host", "localhost");
         return ElasticsearchReporter.forRegistry(registry)
                 .hosts("localhost:" + getPortOfRunningNode())
