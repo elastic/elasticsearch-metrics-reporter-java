@@ -18,6 +18,8 @@
  */
 package org.elasticsearch.metrics;
 
+import sun.misc.BASE64Encoder;
+
 import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonFactory;
@@ -26,6 +28,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
+
 import org.elasticsearch.metrics.percolation.Notifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,6 +69,8 @@ public class ElasticsearchReporter extends ScheduledReporter {
         private int timeout = 1000;
         private String timestampFieldname = "@timestamp";
         private Map<String, Object> additionalFields;
+        private String userName;
+        private String password;
 
         private Builder(MetricRegistry registry) {
             this.registry = registry;
@@ -125,6 +130,16 @@ public class ElasticsearchReporter extends ScheduledReporter {
          */
         public Builder hosts(String ... hosts) {
             this.hosts = hosts;
+            return this;
+        }
+        
+        public Builder userName(String userName) {
+            this.userName = userName;
+            return this;
+        }
+        
+        public Builder password(String password) {
+            this.password = password;
             return this;
         }
 
@@ -198,6 +213,8 @@ public class ElasticsearchReporter extends ScheduledReporter {
         public ElasticsearchReporter build() throws IOException {
             return new ElasticsearchReporter(registry,
                     hosts,
+                    userName,
+                    password,
                     timeout,
                     index,
                     indexDateFormat,
@@ -229,12 +246,16 @@ public class ElasticsearchReporter extends ScheduledReporter {
     private String currentIndexName;
     private SimpleDateFormat indexDateFormat = null;
     private boolean checkedForIndexTemplate = false;
+    private String userName;
+    private String password;
 
-    public ElasticsearchReporter(MetricRegistry registry, String[] hosts, int timeout,
+    public ElasticsearchReporter(MetricRegistry registry, String[] hosts, String userName, String password, int timeout,
                                  String index, String indexDateFormat, int bulkSize, Clock clock, String prefix, TimeUnit rateUnit, TimeUnit durationUnit,
                                  MetricFilter filter, MetricFilter percolationFilter, Notifier percolationNotifier, String timestampFieldname, Map<String, Object> additionalFields) throws MalformedURLException {
         super(registry, "elasticsearch-reporter", filter, rateUnit, durationUnit);
         this.hosts = hosts;
+        this.userName = userName;
+        this.password = password;
         this.index = index;
         this.bulkSize = bulkSize;
         this.clock = clock;
@@ -440,6 +461,14 @@ public class ElasticsearchReporter extends ScheduledReporter {
                 connection.setRequestMethod(method);
                 connection.setConnectTimeout(timeout);
                 connection.setUseCaches(false);
+                
+                if (userName != null && password != null) {
+                    byte[] encodedPassword = (userName + ":" + password).getBytes();
+                    BASE64Encoder encoder = new BASE64Encoder();
+                    connection.setRequestProperty("Authorization",
+                                                  "Basic " + encoder.encode(encodedPassword));
+                }
+                
                 if (method.equalsIgnoreCase("POST") || method.equalsIgnoreCase("PUT")) {
                     connection.setDoOutput(true);
                 }
