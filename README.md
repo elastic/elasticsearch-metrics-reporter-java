@@ -1,16 +1,17 @@
 # Metrics Elasticsearch Reporter
 
-This is a reporter for the excellent [metrics library](http://metrics.codahale.com), similar to the [graphite](http://metrics.codahale.com/manual/graphite/) or [ganglia](http://metrics.codahale.com/manual/ganglia/) reporters, except that it reports to an elasticsearch server.
+This is a reporter for the excellent [Metrics library](http://metrics.dropwizard.io/), similar to the [Graphite](http://metrics.dropwizard.io/3.1.0/manual/graphite/) or [Ganglia](http://metrics.dropwizard.io/3.1.0/manual/ganglia/) reporters, except that it reports to an Elasticsearch server.
 
-In case, you are worried, that you need to include the 20MB elasticsearch dependency in your project, you do not need to be. As this reporter is using HTTP for putting data into elasticsearch, the only library needed is the awesome [Jackson JSON library](http://wiki.fasterxml.com/JacksonHome), more exactly the jackson databind library to easily serialize the metrics objects.
+In case, you are worried, that you need to include the 20MB elasticsearch dependency in your project, you do not need to be. As this reporter is using HTTP for putting data into elasticsearch, the only library needed is the awesome [Jackson JSON library](http://wiki.fasterxml.com/JacksonHome), more exactly the Jackson Databind library to easily serialize the metrics objects.
 
-If you want to see this in action, go to the `samples/` directory and read the readme over there, to get up and running with a sample application using the metrics library as well as a dashboard application to graph.
+If you want to see this in action, go to the `samples/` directory and read the readme over there, to get up and running with a sample application using the Metrics library as well as a dashboard application to graph.
 
 ## Compatibility
 
 |   Metrics-elasticsearch-reporter  |    elasticsearch    | Release date |
 |-----------------------------------|---------------------|:------------:|
-| 2.0                               | 1.0.0  -> master    |  2014-02-16  |
+| 2.1.2                             | 2.1.2  -> master    |  2015-XX-XX  |
+| 2.0                               | 1.0.0  -> 1.7.x     |  2014-02-16  |
 | 1.0                               | 0.90.7 -> 0.90.x    |  2014-02-05  |
 
 ## Installation
@@ -21,7 +22,7 @@ You can simply add a dependency in your `pom.xml` (or whatever dependency resolu
 <dependency>
   <groupId>org.elasticsearch</groupId>
   <artifactId>metrics-elasticsearch-reporter</artifactId>
-  <version>2.0</version>
+  <version>2.1.2</version>
 </dependency>
 ```
 

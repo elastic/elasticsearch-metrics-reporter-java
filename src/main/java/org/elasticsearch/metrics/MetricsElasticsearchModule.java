@@ -18,7 +18,10 @@
  */
 package org.elasticsearch.metrics;
 
-import com.codahale.metrics.*;
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.Snapshot;
+import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.JsonSerializer;
@@ -33,11 +36,15 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static org.elasticsearch.metrics.JsonMetrics.*;
+import static org.elasticsearch.metrics.JsonMetrics.JsonCounter;
+import static org.elasticsearch.metrics.JsonMetrics.JsonGauge;
+import static org.elasticsearch.metrics.JsonMetrics.JsonHistogram;
+import static org.elasticsearch.metrics.JsonMetrics.JsonMeter;
+import static org.elasticsearch.metrics.JsonMetrics.JsonTimer;
 
 public class MetricsElasticsearchModule extends Module {
 
-    public static final Version VERSION = new Version(1, 0, 0, "", "metrics-elasticsearch-reporter", "metrics-elasticsearch-reporter");
+    public static final Version VERSION = new Version(3, 0, 0, "", "metrics-elasticsearch-reporter", "metrics-elasticsearch-reporter");
 
     private static void writeAdditionalFields(final Map<String, Object> additionalFields, final JsonGenerator json) throws IOException {
         if (additionalFields != null) {
@@ -238,7 +245,7 @@ public class MetricsElasticsearchModule extends Module {
      */
     private static class BulkIndexOperationHeaderSerializer extends StdSerializer<BulkIndexOperationHeader> {
 
-        public BulkIndexOperationHeaderSerializer(String timestampFieldname, Map<String, Object> additionalFields) {
+        public BulkIndexOperationHeaderSerializer() {
             super(BulkIndexOperationHeader.class);
         }
 
@@ -297,7 +304,7 @@ public class MetricsElasticsearchModule extends Module {
                 new HistogramSerializer(timestampFieldname, additionalFields),
                 new MeterSerializer(rateUnit, timestampFieldname, additionalFields),
                 new TimerSerializer(rateUnit, durationUnit, timestampFieldname, additionalFields),
-                new BulkIndexOperationHeaderSerializer(timestampFieldname, additionalFields)
+                new BulkIndexOperationHeaderSerializer()
         )));
     }
 

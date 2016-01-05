@@ -22,6 +22,7 @@ import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -293,7 +294,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
                 return;
             }
 
-            List<JsonMetric> percolationMetrics = new ArrayList<JsonMetric>();
+            List<JsonMetric> percolationMetrics = new ArrayList<>();
             AtomicInteger entriesWritten = new AtomicInteger(0);
 
             for (Map.Entry<String, Gauge> entry : gauges.entrySet()) {
@@ -352,10 +353,10 @@ public class ElasticsearchReporter extends ScheduledReporter {
         HttpURLConnection connection = openConnection("/" + currentIndexName + "/" + jsonMetric.type() + "/_percolate", "POST");
         if (connection == null) {
             LOGGER.error("Could not connect to any configured elasticsearch instances for percolation: {}", Arrays.asList(hosts));
-            return Collections.EMPTY_LIST;
+            return Collections.emptyList();
         }
 
-        Map<String, Object> data = new HashMap<String, Object>(1);
+        Map<String, Object> data = new HashMap<>(1);
         data.put("doc", jsonMetric);
         objectMapper.writeValue(connection.getOutputStream(), data);
         closeConnection(connection);
@@ -364,8 +365,8 @@ public class ElasticsearchReporter extends ScheduledReporter {
             throw new RuntimeException("Error percolating " + jsonMetric);
         }
 
-        Map<String, Object> input = objectMapper.readValue(connection.getInputStream(), Map.class);
-        List<String> matches = new ArrayList<String>();
+        Map<String, Object> input = objectMapper.readValue(connection.getInputStream(), new TypeReference<Map<String, Object>>() {});
+        List<String> matches = new ArrayList<>();
         if (input.containsKey("matches") && input.get("matches") instanceof List) {
             List<Map<String, String>> foundMatches = (List<Map<String, String>>) input.get("matches");
             for (Map<String, String> entry : foundMatches) {
@@ -473,6 +474,11 @@ public class ElasticsearchReporter extends ScheduledReporter {
             if (isTemplateMissing) {
                 LOGGER.debug("No metrics template found in elasticsearch. Adding...");
                 HttpURLConnection putTemplateConnection = openConnection( "/_template/metrics_template", "PUT");
+                if(putTemplateConnection == null) {
+                    LOGGER.error("Error adding metrics template to elasticsearch");
+                    return;
+                }
+
                 JsonGenerator json = new JsonFactory().createGenerator(putTemplateConnection.getOutputStream());
                 json.writeStartObject();
                 json.writeStringField("template", index + "*");

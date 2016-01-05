@@ -32,18 +32,21 @@ import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.StopWatch;
 import org.elasticsearch.common.geo.GeoHashUtils;
-import org.elasticsearch.common.settings.ImmutableSettings;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
-import org.elasticsearch.node.NodeBuilder;
 import org.elasticsearch.metrics.ElasticsearchReporter;
+import org.elasticsearch.node.Node;
+import org.elasticsearch.node.NodeBuilder;
 
+import java.io.IOException;
 import java.io.InputStream;
-import java.lang.Exception;
-import java.lang.System;
 import java.net.HttpURLConnection;
+import java.net.InetSocketAddress;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -84,8 +87,11 @@ public class LogfileStreamer {
     }
 
     public LogfileStreamer() {
-        client = new TransportClient(ImmutableSettings.settingsBuilder().put("cluster.name", clusterName).build()).addTransportAddress(new
-                InetSocketTransportAddress("localhost", 9300));
+        final Settings settings = Settings.builder().put("cluster.name", clusterName).build();
+        client = TransportClient.builder()
+                .settings(settings)
+                .build()
+                .addTransportAddress(new InetSocketTransportAddress(new InetSocketAddress("localhost", 9300)));
         reset();
     }
 
@@ -158,7 +164,7 @@ public class LogfileStreamer {
 
     private void logStatistics(long itemsIndexed) {
         long totalTimeInSeconds = sw.stop().totalTime().seconds();
-        double totalDocumentsPerSecond = (totalTimeInSeconds == 0) ? itemsIndexed: (double) itemsIndexed / totalTimeInSeconds;
+        double totalDocumentsPerSecond = (totalTimeInSeconds == 0) ? itemsIndexed : (double) itemsIndexed / totalTimeInSeconds;
         System.out.println(String.format("\nIndexed %s documents, %.2f per second in %s seconds", itemsIndexed, totalDocumentsPerSecond, totalTimeInSeconds));
         indexingMeter.mark(1);
     }
@@ -178,7 +184,9 @@ public class LogfileStreamer {
     private void createIndexAndMappingIfNecessary() {
         try {
             client.admin().indices().prepareCreate("logfile").execute().actionGet();
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         try {
             XContentBuilder mappingContent = XContentFactory.jsonBuilder().startObject().startObject("log")
@@ -188,13 +196,22 @@ public class LogfileStreamer {
                     .endObject().endObject();
 
             client.admin().indices().preparePutMapping("logfile").setType("log").setSource(mappingContent).execute().actionGet();
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    private void startElasticsearchIfNecessary() {
+    private void startElasticsearchIfNecessary() throws IOException {
         if (!"no".equals(System.getProperty("create.es.instance"))) {
-            System.out.println("Starting elasticsearch instance");
-            NodeBuilder.nodeBuilder().settings(ImmutableSettings.settingsBuilder().put("cluster.name", clusterName).build()).node().start();
+            final Path tempDirectory = Files.createTempDirectory("usa-gov-logfile-parser");
+            System.out.println("Starting elasticsearch instance (data: " + tempDirectory + ")");
+            final Settings settings = Settings.settingsBuilder()
+                    .put("cluster.name", clusterName)
+                    .put("path.home", tempDirectory.toString())
+                    .put("path.data", tempDirectory.toString())
+                    .put(Node.HTTP_ENABLED, true)
+                    .build();
+            NodeBuilder.nodeBuilder().settings(settings).node().start();
         } else {
             System.out.println("Not starting elasticsearch instance, please check if available at localhost:9200");
         }
