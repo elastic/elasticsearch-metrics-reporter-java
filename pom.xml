@@ -49,7 +49,7 @@
 
     <issueManagement>
         <system>GitHub</system>
-        <url>https://github.com/elasticsearchi/elasticsearch-metrics-reporter-java/issues/</url>
+        <url>https://github.com/elasticsearch/elasticsearch-metrics-reporter-java/issues/</url>
     </issueManagement>
 
     <build>
