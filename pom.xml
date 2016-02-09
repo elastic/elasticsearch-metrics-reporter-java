@@ -5,14 +5,14 @@
     
     <groupId>org.elasticsearch</groupId>
     <artifactId>metrics-elasticsearch-reporter</artifactId>
-    <version>2.1.1-SNAPSHOT</version>
+    <version>2.2.0-SNAPSHOT</version>
 
     <properties>
-        <lucene.version>5.3.1</lucene.version>
-        <elasticsearch.version>2.1.1</elasticsearch.version>
-        <jackson.version>2.6.2</jackson.version>
+        <lucene.version>5.4.1</lucene.version>
+        <elasticsearch.version>2.2.0</elasticsearch.version>
+        <jackson.version>2.6.5</jackson.version>
+        <randomized.testrunner.version>2.3.1</randomized.testrunner.version>
     </properties>
-
 
     <modelVersion>4.0.0</modelVersion>
     <packaging>jar</packaging>
@@ -40,13 +40,6 @@
         <version>9</version>
     </parent>
 
-    <repositories>
-        <repository>
-            <id>sonatype</id>
-            <url>http://oss.sonatype.org/content/repositories/releases/</url>
-        </repository>
-    </repositories>
-
     <issueManagement>
         <system>GitHub</system>
         <url>https://github.com/elasticsearchi/elasticsearch-metrics-reporter-java/issues/</url>
@@ -56,8 +49,18 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>2.19.1</version>
+                <configuration>
+                    <systemPropertyVariables>
+                        <tests.security.manager>false</tests.security.manager>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.3</version>
+                <version>3.5</version>
                 <configuration>
                     <source>1.7</source>
                     <target>1.7</target>
@@ -117,7 +120,7 @@
         <dependency>
             <groupId>com.carrotsearch.randomizedtesting</groupId>
             <artifactId>randomizedtesting-runner</artifactId>
-            <version>2.1.16</version>
+            <version>${randomized.testrunner.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
