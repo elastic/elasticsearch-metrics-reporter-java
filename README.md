@@ -10,7 +10,7 @@ If you want to see this in action, go to the `samples/` directory and read the r
 
 |   Metrics-elasticsearch-reporter  |    elasticsearch    | Release date |
 |-----------------------------------|---------------------|:------------:|
-| 2.1.1                             | 2.1.1  -> master    |  2015-XX-XX  |
+| 2.2.0                             | 2.2.0  -> master    |  2016-02-10  |
 | 2.0                               | 1.0.0  -> 1.7.x     |  2014-02-16  |
 | 1.0                               | 0.90.7 -> 0.90.x    |  2014-02-05  |
 
@@ -22,7 +22,7 @@ You can simply add a dependency in your `pom.xml` (or whatever dependency resolu
 <dependency>
   <groupId>org.elasticsearch</groupId>
   <artifactId>metrics-elasticsearch-reporter</artifactId>
-  <version>2.1.1</version>
+  <version>2.2.0</version>
 </dependency>
 ```
 
