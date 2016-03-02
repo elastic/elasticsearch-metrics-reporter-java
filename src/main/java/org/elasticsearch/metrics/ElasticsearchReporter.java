@@ -396,13 +396,12 @@ public class ElasticsearchReporter extends ScheduledReporter {
 
     private void closeConnection(HttpURLConnection connection) throws IOException {
         connection.getOutputStream().close();
-        connection.disconnect();
-
         // we have to call this, otherwise out HTTP data does not get send, even though close()/disconnect was called
         // Ceterum censeo HttpUrlConnection esse delendam
         if (connection.getResponseCode() != 200) {
             LOGGER.error("Reporting returned code {} {}: {}", connection.getResponseCode(), connection.getResponseMessage());
         }
+        connection.disconnect();
     }
 
     /**
