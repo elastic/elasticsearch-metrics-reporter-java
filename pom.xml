@@ -9,7 +9,7 @@
         <lucene.version>5.4.1</lucene.version>
         <elasticsearch.version>2.2.0</elasticsearch.version>
         <jackson.version>2.7.3</jackson.version>
-        <randomized.testrunner.version>2.3.1</randomized.testrunner.version>
+        <randomized.testrunner.version>2.3.3</randomized.testrunner.version>
     </properties>
 
     <modelVersion>4.0.0</modelVersion>
