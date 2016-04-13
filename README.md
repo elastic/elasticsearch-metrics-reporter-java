@@ -17,7 +17,7 @@ If you want to see this in action, go to the `samples/` directory and read the r
 
 ## Travis CI build status
 
-[![Build status](https://travis-ci.org/elastic/elasticsearch-metrics-reporter-java)](https://api.travis-ci.org/elastic/elasticsearch-metrics-reporter-java.svg?branch=master)
+[![Build status](https://api.travis-ci.org/elastic/elasticsearch-metrics-reporter-java.svg?branch=master)](https://travis-ci.org/elastic/elasticsearch-metrics-reporter-java)
 
 ## Installation
 
