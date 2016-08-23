@@ -502,7 +502,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
 
                 putTemplateConnection.disconnect();
                 if (putTemplateConnection.getResponseCode() != 200) {
-                    LOGGER.error("Error adding metrics template to elasticsearch: {}/{}" + putTemplateConnection.getResponseCode(), putTemplateConnection.getResponseMessage());
+                    LOGGER.error("Error adding metrics template to elasticsearch: {}/{}", putTemplateConnection.getResponseCode(), putTemplateConnection.getResponseMessage());
                 }
             }
             checkedForIndexTemplate = true;
