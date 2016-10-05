@@ -367,6 +367,10 @@ public class ElasticsearchReporter extends BaseJsonReporter {
                 json.writeObjectField("type", "string");
                 json.writeObjectField("index", "not_analyzed");
                 json.writeEndObject();
+                json.writeObjectFieldStart("type");
+                json.writeObjectField("type", "string");
+                json.writeObjectField("index", "not_analyzed");
+                json.writeEndObject();
                 json.writeEndObject();
                 json.writeEndObject();
 

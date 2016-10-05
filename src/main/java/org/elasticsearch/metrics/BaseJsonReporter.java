@@ -37,8 +37,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.codahale.metrics.MetricRegistry.name;
 import static org.elasticsearch.metrics.JsonMetrics.*;
 
+/**
+ * Base reporter producing metrics in Logstash/JSON format
+ */
 public abstract class BaseJsonReporter extends ScheduledReporter {
 
+    /**
+     * Base reporter builder
+     * @param <R> Reporter class
+     * @param <B> Reporter builder class
+     */
     public static abstract class Builder<R extends BaseJsonReporter, B extends Builder<R, B>> {
         protected final MetricRegistry registry;
         protected Clock clock;
@@ -146,6 +154,9 @@ public abstract class BaseJsonReporter extends ScheduledReporter {
         writer = objectMapper.writer();
     }
 
+    /**
+     * A report contains a batch of metrics and handles resources disposal
+     */
     protected interface Report {
         /**
          * Append metric to report
@@ -218,7 +229,7 @@ public abstract class BaseJsonReporter extends ScheduledReporter {
             report.close();
         // catch the exception to make sure we do not interrupt the live application
         } catch (IOException e) {
-            LOGGER.error("Couldnt report to elasticsearch server", e);
+            LOGGER.error("Couldnt report", e);
         }
     }
 }
