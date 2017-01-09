@@ -124,7 +124,6 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
         IndexMetaData indexMetaData = clusterStateResponse.getState().getMetaData().getIndices().get(indexWithDate);
         assertThat(indexMetaData.getMappings().containsKey("counter"), is(true));
         Map<String, Object> properties = getAsMap(indexMetaData.mapping("counter").sourceAsMap(), "properties");
-
         Map<String, Object> mapping = getAsMap(properties, "name");
         assertThat(mapping, hasKey("type"));
         assertThat(mapping.get("type").toString(), is("keyword"));

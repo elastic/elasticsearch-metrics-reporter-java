@@ -18,15 +18,7 @@
  */
 package org.elasticsearch.metrics;
 
-import com.codahale.metrics.Clock;
-import com.codahale.metrics.Counter;
-import com.codahale.metrics.Gauge;
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.Meter;
-import com.codahale.metrics.Metric;
-import com.codahale.metrics.MetricFilter;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.ScheduledReporter;
+import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -47,23 +39,12 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.SortedMap;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.codahale.metrics.MetricRegistry.name;
-import static org.elasticsearch.metrics.JsonMetrics.JsonCounter;
-import static org.elasticsearch.metrics.JsonMetrics.JsonGauge;
-import static org.elasticsearch.metrics.JsonMetrics.JsonHistogram;
-import static org.elasticsearch.metrics.JsonMetrics.JsonMeter;
-import static org.elasticsearch.metrics.JsonMetrics.JsonMetric;
-import static org.elasticsearch.metrics.JsonMetrics.JsonTimer;
+import static org.elasticsearch.metrics.JsonMetrics.*;
 import static org.elasticsearch.metrics.MetricsElasticsearchModule.BulkIndexOperationHeader;
 
 public class ElasticsearchReporter extends ScheduledReporter {
@@ -79,7 +60,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
         private TimeUnit rateUnit;
         private TimeUnit durationUnit;
         private MetricFilter filter;
-        private String[] hosts = new String[]{"localhost:9200"};
+        private String[] hosts = new String[]{ "localhost:9200" };
         private String index = "metrics";
         private String indexDateFormat = "yyyy-MM";
         private int bulkSize = 2500;
@@ -139,12 +120,13 @@ public class ElasticsearchReporter extends ScheduledReporter {
         }
 
         /**
-         * Configure an array of hosts to send data to. Note: Data is always sent to only one host,
-         * but this makes sure, that even if a part of your elasticsearch cluster is not running,
-         * reporting still happens A host must be in the format hostname:port The port must be the
-         * HTTP port of your elasticsearch instance
+         * Configure an array of hosts to send data to.
+         * Note: Data is always sent to only one host, but this makes sure, that even if a part of your elasticsearch cluster
+         *       is not running, reporting still happens
+         * A host must be in the format hostname:port
+         * The port must be the HTTP port of your elasticsearch instance
          */
-        public Builder hosts(String... hosts) {
+        public Builder hosts(String ... hosts) {
             this.hosts = hosts;
             return this;
         }
@@ -191,8 +173,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
         }
 
         /**
-         * An instance of the notifier implemention which should be executed in case of a matching
-         * percolation
+         * An instance of the notifier implemention which should be executed in case of a matching percolation
          */
         public Builder percolationNotifier(Notifier notifier) {
             this.percolationNotifier = notifier;
@@ -209,6 +190,8 @@ public class ElasticsearchReporter extends ScheduledReporter {
 
         /**
          * Additional fields to be included for each metric
+         * @param additionalFields
+         * @return
          */
         public Builder additionalFields(Map<String, Object> additionalFields) {
             this.additionalFields = additionalFields;
@@ -359,7 +342,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
                     }
                 }
             }
-            // catch the exception to make sure we do not interrupt the live application
+        // catch the exception to make sure we do not interrupt the live application
         } catch (IOException e) {
             LOGGER.error("Couldnt report to elasticsearch server", e);
         }
@@ -462,14 +445,13 @@ public class ElasticsearchReporter extends ScheduledReporter {
     }
 
     /**
-     * Open a new HttpUrlConnection, in case it fails it tries for the next host in the configured
-     * list
+     * Open a new HttpUrlConnection, in case it fails it tries for the next host in the configured list
      */
     private HttpURLConnection openConnection(String uri, String method) {
         for (String host : hosts) {
             try {
-                URL templateUrl = new URL("http://" + host + uri);
-                HttpURLConnection connection = (HttpURLConnection) templateUrl.openConnection();
+                URL templateUrl = new URL("http://" + host  + uri);
+                HttpURLConnection connection = ( HttpURLConnection ) templateUrl.openConnection();
                 connection.setRequestMethod(method);
                 connection.setConnectTimeout(timeout);
                 connection.setUseCaches(false);
@@ -493,7 +475,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
      */
     private void checkForIndexTemplate() {
         try {
-            HttpURLConnection connection = openConnection("/_template/metrics_template", "HEAD");
+            HttpURLConnection connection = openConnection( "/_template/metrics_template", "HEAD");
             if (connection == null) {
                 LOGGER.error("Could not connect to any configured elasticsearch instances: {}", Arrays.asList(hosts));
                 return;
@@ -505,8 +487,8 @@ public class ElasticsearchReporter extends ScheduledReporter {
             // nothing there, lets create it
             if (isTemplateMissing) {
                 LOGGER.debug("No metrics template found in elasticsearch. Adding...");
-                HttpURLConnection putTemplateConnection = openConnection("/_template/metrics_template", "PUT");
-                if (putTemplateConnection == null) {
+                HttpURLConnection putTemplateConnection = openConnection( "/_template/metrics_template", "PUT");
+                if(putTemplateConnection == null) {
                     LOGGER.error("Error adding metrics template to elasticsearch");
                     return;
                 }

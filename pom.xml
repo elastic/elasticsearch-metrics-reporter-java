@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
     <groupId>org.elasticsearch</groupId>
     <artifactId>metrics-elasticsearch-reporter</artifactId>
@@ -23,11 +21,8 @@
     <inceptionYear>2013</inceptionYear>
 
     <scm>
-        <connection>scm:git:git@github.com:elasticsearch/elasticsearch-metrics-reporter-java.git
-        </connection>
-        <developerConnection>
-            scm:git:git@github.com:elasticsearch/elasticsearch-metrics-reporter-java.git
-        </developerConnection>
+        <connection>scm:git:git@github.com:elasticsearch/elasticsearch-metrics-reporter-java.git</connection>
+        <developerConnection>scm:git:git@github.com:elasticsearch/elasticsearch-metrics-reporter-java.git</developerConnection>
         <url>http://github.com/elasticsearch/elasticsearch-metrics-reporter</url>
     </scm>
 
