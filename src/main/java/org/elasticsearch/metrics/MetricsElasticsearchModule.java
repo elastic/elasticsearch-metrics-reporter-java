@@ -46,6 +46,12 @@ public class MetricsElasticsearchModule extends Module {
 
     public static final Version VERSION = new Version(3, 0, 0, "", "metrics-elasticsearch-reporter", "metrics-elasticsearch-reporter");
 
+    public final static String VALUE_FIELDNAME_DEFAULT = "value";
+    public final static String VALUE_FIELDNAME_STRING = "value_string";
+    public final static String VALUE_FIELDNAME_LONG = "value_long";
+    public final static String VALUE_FIELDNAME_DOUBLE = "value_double";
+    public final static String VALUE_FIELDNAME_BOOLEAN = "value_boolean";
+    
     private static void writeAdditionalFields(final Map<String, Object> additionalFields, final JsonGenerator json) throws IOException {
         if (additionalFields != null) {
             for (final Map.Entry<String, Object> field : additionalFields.entrySet()) {
@@ -53,15 +59,38 @@ public class MetricsElasticsearchModule extends Module {
             }
         }
     }
+    
+    /**
+     * Get the fieldname for the "value" field depending on the type of value.
+     * @param value
+     * @return
+     */
+    public static String getValueFieldname(Object value) {
+        String fieldName = VALUE_FIELDNAME_DEFAULT;
+    	if (value instanceof String) {
+    		fieldName = VALUE_FIELDNAME_STRING;
+	    } else if (value instanceof Long || value instanceof Integer) {
+			fieldName = VALUE_FIELDNAME_LONG;
+	    } else if (value instanceof Double || value instanceof Float) {
+			fieldName = VALUE_FIELDNAME_DOUBLE;
+	    } else if (value instanceof Boolean) {
+			fieldName = VALUE_FIELDNAME_BOOLEAN;
+	    } else {
+	    	fieldName = VALUE_FIELDNAME_DEFAULT;
+	    }
+    	return fieldName;
+    }
 
     private static class GaugeSerializer extends StdSerializer<JsonGauge> {
         private final String timestampFieldname;
         private final Map<String, Object> additionalFields;
+        private final boolean dynamicValueFieldname;
 
-        private GaugeSerializer(String timestampFieldname, Map<String, Object> additionalFields) {
+        private GaugeSerializer(String timestampFieldname, Map<String, Object> additionalFields, boolean dynamicValueFieldname) {
             super(JsonGauge.class);
             this.timestampFieldname = timestampFieldname;
             this.additionalFields = additionalFields;
+            this.dynamicValueFieldname = dynamicValueFieldname;
         }
 
         @Override
@@ -74,7 +103,8 @@ public class MetricsElasticsearchModule extends Module {
             final Object value;
             try {
                 value = gauge.value().getValue();
-                json.writeObjectField("value", value);
+                String valueFieldname = dynamicValueFieldname ? getValueFieldname(value) : VALUE_FIELDNAME_DEFAULT;
+                json.writeObjectField(valueFieldname, value);
             } catch (RuntimeException e) {
                 json.writeObjectField("error", e.toString());
             }
@@ -278,12 +308,14 @@ public class MetricsElasticsearchModule extends Module {
     private final TimeUnit durationUnit;
     private final String timestampFieldname;
     private final Map<String, Object> additionalFields;
+    private final boolean dynamicValueFieldname;
 
-    public MetricsElasticsearchModule(TimeUnit rateUnit, TimeUnit durationUnit, String timestampFieldname, Map<String, Object> additionalFields) {
+    public MetricsElasticsearchModule(TimeUnit rateUnit, TimeUnit durationUnit, String timestampFieldname, Map<String, Object> additionalFields, boolean dynamicValueFieldname) {
         this.rateUnit = rateUnit;
         this.durationUnit = durationUnit;
         this.timestampFieldname = timestampFieldname;
         this.additionalFields = additionalFields;
+        this.dynamicValueFieldname = dynamicValueFieldname;
     }
 
     @Override
@@ -299,7 +331,7 @@ public class MetricsElasticsearchModule extends Module {
     @Override
     public void setupModule(SetupContext context) {
         context.addSerializers(new SimpleSerializers(Arrays.<JsonSerializer<?>>asList(
-                new GaugeSerializer(timestampFieldname, additionalFields),
+                new GaugeSerializer(timestampFieldname, additionalFields, dynamicValueFieldname),
                 new CounterSerializer(timestampFieldname, additionalFields),
                 new HistogramSerializer(timestampFieldname, additionalFields),
                 new MeterSerializer(rateUnit, timestampFieldname, additionalFields),
