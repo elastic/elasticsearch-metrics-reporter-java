@@ -90,6 +90,7 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
         IndexTemplateMetaData templateData = response.getIndexTemplates().get(0);
         assertThat(templateData.order(), is(0));
         assertThat(templateData.getMappings().get("_default_"), is(notNullValue()));
+        assertThat(templateData.getMappings().get("gauge"), is(notNullValue()));
     }
 
     @Test
