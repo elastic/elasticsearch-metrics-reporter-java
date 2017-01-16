@@ -89,7 +89,6 @@ public class ValueFieldnameTest {
 		};
 		
 		JsonMetric<?> jsonMetricString = new JsonGauge("string", Long.MAX_VALUE, gaugeString);
-		JsonMetric<?> jsonMetricStringSet = new JsonGauge("stringSet", Long.MAX_VALUE, gaugeStringSet);
 		JsonMetric<?> jsonMetricLong = new JsonGauge("long", Long.MAX_VALUE, gaugeLong);
 		JsonMetric<?> jsonMetricInteger = new JsonGauge("integer", Long.MAX_VALUE, gaugeInteger);
 		JsonMetric<?> jsonMetricDouble = new JsonGauge("double", Long.MAX_VALUE, gaugeDouble);
@@ -99,10 +98,6 @@ public class ValueFieldnameTest {
 		JsonNode stringNode = objectMapper.valueToTree(jsonMetricString);
 		assertTrue(stringNode.get("value_string").isTextual());
 		assertFalse(stringNode.get("value_string").isNumber());
-		
-		JsonNode stringSetNode = objectMapper.valueToTree(jsonMetricStringSet);
-		assertTrue(stringSetNode.get("value_string").isTextual());
-		assertFalse(stringSetNode.get("value_string").isNumber());		
 		
 		JsonNode longNode = objectMapper.valueToTree(jsonMetricLong);
 		assertTrue(longNode.get("value_long").isNumber());
