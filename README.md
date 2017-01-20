@@ -63,6 +63,10 @@ incomingRequestsMeter.mark(1);
 * `index()`: The name of the index to write to, defaults to `metrics`
 * `indexDateFormat()`: The date format to make sure to rotate to a new index, defaults to `yyyy-MM`
 * `timestampFieldname()`: The field name of the timestamp, defaults to `@timestamp`, which makes it easy to use with kibana
+* `templateResource()`: The path to a resource file containing the index template
+* `ingestPipeline()`: An ingest pipeline to use at document creation
+* `pipelineResource()`: The path to a resource file containing an ingest pipeline definition
+* `scriptResources()`: A list of paths to resources containing one or more scripts (intended to be associated with the ingest pipeline) 
 
 ### Mapping
 
