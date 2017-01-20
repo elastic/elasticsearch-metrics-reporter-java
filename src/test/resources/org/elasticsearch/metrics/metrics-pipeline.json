@@ -1,0 +1,10 @@
+{
+  "description": "metrics-pipeline",
+  "processors": [
+    {
+      "script": {
+        "id": "metrics-ingest"
+      }
+    }
+  ]
+}

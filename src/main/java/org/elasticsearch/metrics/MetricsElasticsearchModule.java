@@ -259,6 +259,9 @@ public class MetricsElasticsearchModule extends Module {
             if (bulkIndexOperationHeader.type != null) {
                 json.writeStringField("_type", bulkIndexOperationHeader.type);
             }
+            if (bulkIndexOperationHeader.ingestPipeline != null) {
+                json.writeStringField("pipeline", bulkIndexOperationHeader.ingestPipeline);
+            }
             json.writeEndObject();
             json.writeEndObject();
         }
@@ -267,10 +270,12 @@ public class MetricsElasticsearchModule extends Module {
     public static class BulkIndexOperationHeader {
         public String index;
         public String type;
+        public String ingestPipeline;
 
-        public BulkIndexOperationHeader(String index, String type) {
+        public BulkIndexOperationHeader(String index, String type, String ingestPipeline) {
             this.index = index;
             this.type = type;
+            this.ingestPipeline = ingestPipeline;
         }
     }
 

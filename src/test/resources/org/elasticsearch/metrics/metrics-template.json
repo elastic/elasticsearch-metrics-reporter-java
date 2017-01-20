@@ -1,0 +1,22 @@
+{
+  "template": "testing*",
+  "mappings": {
+    "_default_": {
+      "_all": {
+        "enabled": false
+      },
+      "properties": {
+        "testMapping": {
+          "type": "keyword"
+        }
+      }
+    },
+    "queries": {
+      "properties": {
+        "query": {
+          "type": "percolator"
+        }
+      }
+    }
+  }
+}
