@@ -30,7 +30,9 @@ import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
 import org.elasticsearch.action.admin.cluster.node.stats.NodesStatsResponse;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
+import org.elasticsearch.action.admin.cluster.storedscripts.GetStoredScriptResponse;
 import org.elasticsearch.action.admin.indices.template.get.GetIndexTemplatesResponse;
+import org.elasticsearch.action.ingest.GetPipelineResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.cluster.metadata.IndexTemplateMetaData;
@@ -47,6 +49,7 @@ import org.elasticsearch.test.ESIntegTestCase;
 import org.elasticsearch.transport.Netty4Plugin;
 import org.joda.time.format.ISODateTimeFormat;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -354,6 +357,48 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
         long connectionsAfterReporting = getTotalHttpConnections();
 
         assertThat(connectionsAfterReporting, is(connectionsBeforeReporting));
+    }
+
+    @Test
+    public void testThatIndexTemplateCanBeConfigured() throws Exception {
+        // Delete the template created in setup
+        client().admin().indices().prepareDeleteTemplate("metrics_template").get();
+        elasticsearchReporter = createElasticsearchReporterBuilder().templateResource("/org/elasticsearch/metrics/metrics-template.json").build();
+
+        GetIndexTemplatesResponse response = client().admin().indices().prepareGetTemplates("metrics_template").get();
+
+        assertThat(response.getIndexTemplates(), hasSize(1));
+        IndexTemplateMetaData templateData = response.getIndexTemplates().get(0);
+        assertThat(templateData.order(), is(0));
+        assertThat(templateData.getTemplate(), is("testing*"));
+    }
+
+    @Test
+    @Ignore
+    public void testThatPipelineCanBeConfigured() throws Exception {
+        // Delete the template created in setup, so the resources are loaded
+        client().admin().indices().prepareDeleteTemplate("metrics_template").get();
+        elasticsearchReporter = createElasticsearchReporterBuilder().pipelineResource("/org/elasticsearch/metrics/metrics-pipeline.json").build();
+
+        GetPipelineResponse response = client().admin().cluster().prepareGetPipeline("metrics-pipeline").get();
+        System.out.println(response.pipelines());
+        assertThat(response.isFound(), is(true));
+    }
+
+    @Test
+    @Ignore
+    public void testThatScriptsCanBeConfigured() throws Exception {
+        // Delete the template created in setup, so the resources are loaded
+        client().admin().indices().prepareDeleteTemplate("metrics_template").get();
+
+        List<String> scripts = new ArrayList<>();
+        scripts.add("/org/elasticsearch/metrics/metrics-ingest.painless");
+
+        elasticsearchReporter = createElasticsearchReporterBuilder().scriptResources(scripts).build();
+
+        GetStoredScriptResponse response = client().admin().cluster().prepareGetStoredScript("painless", "metrics-ingest").get();
+        System.out.println(response.getStoredScript());
+        assertThat(response.getStoredScript(), is(notNullValue()));
     }
 
     private long getTotalHttpConnections() {
