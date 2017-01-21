@@ -22,11 +22,13 @@ import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
 
 import org.elasticsearch.metrics.percolation.Notifier;
@@ -619,8 +621,22 @@ public class ElasticsearchReporter extends ScheduledReporter {
         try {
             if (templateResource != null && !templateResource.isEmpty()) {
                 LOGGER.info("Loading template resource {}", templateResource);
-                sendResource("/_template/metrics_template", templateResource);
-                return true;
+
+                try (InputStream inputStream = this.getClass().getResourceAsStream(templateResource))
+                {
+                    ObjectMapper mapper = new ObjectMapper();
+                    JsonNode jsonNode = mapper.readTree(inputStream);
+
+                    ((ObjectNode) jsonNode).put("template", index + '*');
+
+                    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                    outputStream.write(mapper.writeValueAsBytes(jsonNode));
+
+                    ByteArrayInputStream updatedStream = new ByteArrayInputStream(outputStream.toByteArray());
+
+                    sendResource("/_template/metrics_template", updatedStream);
+                    return true;
+                }
             }
         } catch (IOException e) {
             LOGGER.error("Error adding template resource to elasticsearch", e);
@@ -647,7 +663,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
                     pipelineId = pipelineId.substring(0, extensionPos);
                 }
 
-                sendResource("/_ingest/pipeline/" + pipelineId, pipelineResource);
+                sendResource("/_ingest/pipeline/" + pipelineId, this.getClass().getResourceAsStream(pipelineResource));
             }
         } catch (IOException e) {
             LOGGER.error("Error adding pipeline resource to elasticsearch", e);
@@ -721,14 +737,14 @@ public class ElasticsearchReporter extends ScheduledReporter {
         }
     }
 
-    private void sendResource(String uri, String resourcePath) throws IOException {
+    private void sendResource(String uri, InputStream inputStream) throws IOException {
         LOGGER.debug("Resource Uri {}.", uri);
         HttpURLConnection esConnection = openConnection(uri, "PUT");
 
         if (esConnection != null) {
             try (
                     BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(esConnection.getOutputStream()));
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(this.getClass().getResourceAsStream(resourcePath)));
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
             ) {
                 String line;
                 while ((line = reader.readLine()) != null) {

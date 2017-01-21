@@ -370,7 +370,7 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
         assertThat(response.getIndexTemplates(), hasSize(1));
         IndexTemplateMetaData templateData = response.getIndexTemplates().get(0);
         assertThat(templateData.order(), is(0));
-        assertThat(templateData.getTemplate(), is("testing*"));
+        assertThat(templateData.getTemplate(), is(index + "*"));
     }
 
     @Test
