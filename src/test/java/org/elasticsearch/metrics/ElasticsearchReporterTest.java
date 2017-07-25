@@ -73,9 +73,9 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
 
     private ElasticsearchReporter elasticsearchReporter;
     private MetricRegistry registry = new MetricRegistry();
-    private String index = randomAsciiOfLength(12).toLowerCase();
+    private String index = randomAlphaOfLength(12).toLowerCase();
     private String indexWithDate = String.format("%s-%s-%02d", index, Calendar.getInstance().get(Calendar.YEAR), Calendar.getInstance().get(Calendar.MONTH) + 1);
-    private String prefix = randomAsciiOfLength(12).toLowerCase();
+    private String prefix = randomAlphaOfLength(12).toLowerCase();
 
     @Override
     protected Settings nodeSettings(int nodeOrdinal) {
@@ -397,8 +397,8 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
         elasticsearchReporter = createElasticsearchReporterBuilder().scriptResources(scripts).build();
 
         GetStoredScriptResponse response = client().admin().cluster().prepareGetStoredScript("painless", "metrics-ingest").get();
-        System.out.println(response.getStoredScript());
-        assertThat(response.getStoredScript(), is(notNullValue()));
+        System.out.println(response.getSource());
+        assertThat(response.getSource(), is(notNullValue()));
     }
 
     private long getTotalHttpConnections() {

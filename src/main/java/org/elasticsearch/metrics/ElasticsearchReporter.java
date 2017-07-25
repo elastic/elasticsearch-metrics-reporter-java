@@ -561,8 +561,8 @@ public class ElasticsearchReporter extends ScheduledReporter {
                     loadDefaultTemplate();
                 }
 
-                loadResourcePipeline();
                 loadScriptResources();
+                loadResourcePipeline();
             }
             checkedForIndexTemplate = true;
         } catch (IOException e) {
@@ -711,7 +711,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
                     LOGGER.debug("Inlined script:");
                     LOGGER.debug(inlinedScript);
 
-                    String scriptUri = "/_scripts/" + language + '/' + scriptId;
+                    String scriptUri = "/_scripts/" + scriptId;
                     LOGGER.debug("Script URI {}.", scriptUri);
                     HttpURLConnection postScriptConnection = openConnection(scriptUri, "POST");
                     if (postScriptConnection == null) {
@@ -721,7 +721,10 @@ public class ElasticsearchReporter extends ScheduledReporter {
 
                     JsonGenerator json = new JsonFactory().createGenerator(postScriptConnection.getOutputStream());
                     json.writeStartObject();
-                    json.writeStringField("script", inlinedScript);
+                    json.writeObjectFieldStart("script");
+                    json.writeStringField("lang", "painless");
+                    json.writeStringField("code", inlinedScript);
+                    json.writeEndObject();
                     json.writeEndObject();
                     json.flush();
 
