@@ -441,6 +441,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
                 connection.setRequestMethod(method);
                 connection.setConnectTimeout(timeout);
                 connection.setUseCaches(false);
+                connection.setRequestProperty("Content-Type", "application/json");
                 if (method.equalsIgnoreCase("POST") || method.equalsIgnoreCase("PUT")) {
                     connection.setDoOutput(true);
                 }
