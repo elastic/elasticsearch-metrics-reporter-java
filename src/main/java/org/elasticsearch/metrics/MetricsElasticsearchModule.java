@@ -32,6 +32,7 @@ import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -53,7 +54,7 @@ public class MetricsElasticsearchModule extends Module {
             }
         }
     }
-
+    
     private static class GaugeSerializer extends StdSerializer<JsonGauge> {
         private final String timestampFieldname;
         private final Map<String, Object> additionalFields;
@@ -74,7 +75,16 @@ public class MetricsElasticsearchModule extends Module {
             final Object value;
             try {
                 value = gauge.value().getValue();
-                json.writeObjectField("value", value);
+                if (value instanceof Iterable) { // Check if writing a single value or an array
+                	Iterable<?> iterable = (Iterable<?>) value;
+                	json.writeArrayFieldStart("value");
+                	for (Object valueItem : iterable) {
+                		json.writeObject(valueItem);
+                	}
+                	json.writeEndArray();
+                } else {
+                	json.writeObjectField("value", value);	
+                }
             } catch (RuntimeException e) {
                 json.writeObjectField("error", e.toString());
             }
