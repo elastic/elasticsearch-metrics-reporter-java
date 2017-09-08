@@ -1,5 +1,13 @@
 # Metrics Elasticsearch Reporter
 
+## Status
+
+![Project unmaintained](https://img.shields.io/badge/project-unmaintained-red.svg)
+
+This project is no longer maintained. If you want to maintain it, please fork and we will link to your new repository.
+
+## Introduction
+
 This is a reporter for the excellent [Metrics library](http://metrics.dropwizard.io/), similar to the [Graphite](http://metrics.dropwizard.io/3.1.0/manual/graphite/) or [Ganglia](http://metrics.dropwizard.io/3.1.0/manual/ganglia/) reporters, except that it reports to an Elasticsearch server.
 
 In case, you are worried, that you need to include the 20MB elasticsearch dependency in your project, you do not need to be. As this reporter is using HTTP for putting data into elasticsearch, the only library needed is the awesome [Jackson JSON library](http://wiki.fasterxml.com/JacksonHome), more exactly the Jackson Databind library to easily serialize the metrics objects.
