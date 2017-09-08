@@ -67,6 +67,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
         private int timeout = 1000;
         private String timestampFieldname = "@timestamp";
         private Map<String, Object> additionalFields;
+        private boolean dynamicValueFieldname = false;
 
         private Builder(MetricRegistry registry) {
             this.registry = registry;
@@ -196,7 +197,18 @@ public class ElasticsearchReporter extends ScheduledReporter {
             return this;
         }
 
-        public ElasticsearchReporter build() throws IOException {
+        /**
+         * Whether the fieldname for "value" should depend on the value type or not. Defaults to <code>false</code>.
+         * When set to <code>true</code>, the fieldname for value will be "value_string", "value_long" etc.
+         * @param dynamicValueFieldname
+         * @return
+         */
+        public Builder dynamicValueFieldname(boolean dynamicValueFieldname) {
+			this.dynamicValueFieldname = dynamicValueFieldname;
+			return this;
+		}
+
+		public ElasticsearchReporter build() throws IOException {
             return new ElasticsearchReporter(registry,
                     hosts,
                     timeout,
@@ -211,7 +223,8 @@ public class ElasticsearchReporter extends ScheduledReporter {
                     percolationFilter,
                     percolationNotifier,
                     timestampFieldname,
-                    additionalFields);
+                    additionalFields,
+                    dynamicValueFieldname);
         }
     }
 
@@ -233,7 +246,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
 
     public ElasticsearchReporter(MetricRegistry registry, String[] hosts, int timeout,
                                  String index, String indexDateFormat, int bulkSize, Clock clock, String prefix, TimeUnit rateUnit, TimeUnit durationUnit,
-                                 MetricFilter filter, MetricFilter percolationFilter, Notifier percolationNotifier, String timestampFieldname, Map<String, Object> additionalFields) throws MalformedURLException {
+                                 MetricFilter filter, MetricFilter percolationFilter, Notifier percolationNotifier, String timestampFieldname, Map<String, Object> additionalFields, boolean dynamicValueFieldname) throws MalformedURLException {
         super(registry, "elasticsearch-reporter", filter, rateUnit, durationUnit);
         this.hosts = hosts;
         this.index = index;
@@ -259,7 +272,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
         objectMapper.configure(JsonGenerator.Feature.AUTO_CLOSE_JSON_CONTENT, false);
         objectMapper.configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false);
         objectMapper.registerModule(new AfterburnerModule());
-        objectMapper.registerModule(new MetricsElasticsearchModule(rateUnit, durationUnit, timestampFieldname, additionalFields));
+        objectMapper.registerModule(new MetricsElasticsearchModule(rateUnit, durationUnit, timestampFieldname, additionalFields, dynamicValueFieldname));
         writer = objectMapper.writer();
         checkForIndexTemplate();
     }
@@ -495,6 +508,15 @@ public class ElasticsearchReporter extends ScheduledReporter {
                 json.writeEndObject();
                 json.writeEndObject();
                 json.writeEndObject();
+                
+                json.writeObjectFieldStart("gauge");
+                json.writeObjectFieldStart("properties");
+                json.writeObjectFieldStart("value_string");
+                json.writeObjectField("type", "string");
+                json.writeObjectField("index", "not_analyzed");
+                json.writeEndObject();
+                json.writeEndObject();
+                json.writeEndObject();                
 
                 json.writeEndObject();
                 json.writeEndObject();

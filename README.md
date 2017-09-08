@@ -68,6 +68,7 @@ incomingRequestsMeter.mark(1);
 * `index()`: The name of the index to write to, defaults to `metrics`
 * `indexDateFormat()`: The date format to make sure to rotate to a new index, defaults to `yyyy-MM`
 * `timestampFieldname()`: The field name of the timestamp, defaults to `@timestamp`, which makes it easy to use with kibana
+* `dynamicValueFieldname()`: Whether the fieldname for `value` should depend on the value type or not. Defaults to `false`, so `value` is used as fieldname. When set to `true`, the fieldname will be one of `['value_string', 'value_long', 'value_double', 'value_boolean', 'value']`. Fallback is `value` when the type is not one of `String`, `Long|Integer`, `Double|Float`, or `Boolean`.  Only used for meters of type gauge. 
 
 ### Mapping
 
