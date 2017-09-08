@@ -70,6 +70,7 @@ public class MetricsElasticsearchModule extends Module {
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
             json.writeStringField("name", gauge.name());
+            json.writeStringField("type", gauge.type());
             json.writeObjectField(timestampFieldname, gauge.timestampAsDate());
             final Object value;
             try {
@@ -99,6 +100,7 @@ public class MetricsElasticsearchModule extends Module {
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
             json.writeStringField("name", counter.name());
+            json.writeStringField("type", counter.type());
             json.writeObjectField(timestampFieldname, counter.timestampAsDate());
             json.writeNumberField("count", counter.value().getCount());
             writeAdditionalFields(additionalFields, json);
@@ -123,6 +125,7 @@ public class MetricsElasticsearchModule extends Module {
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
             json.writeStringField("name", jsonHistogram.name());
+            json.writeStringField("type", jsonHistogram.type());
             json.writeObjectField(timestampFieldname, jsonHistogram.timestampAsDate());
             Histogram histogram = jsonHistogram.value();
 
@@ -164,6 +167,7 @@ public class MetricsElasticsearchModule extends Module {
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
             json.writeStringField("name", jsonMeter.name());
+            json.writeStringField("type", jsonMeter.type());
             json.writeObjectField(timestampFieldname, jsonMeter.timestampAsDate());
             Meter meter = jsonMeter.value();
             json.writeNumberField("count", meter.getCount());
@@ -201,6 +205,7 @@ public class MetricsElasticsearchModule extends Module {
                               SerializerProvider provider) throws IOException {
             json.writeStartObject();
             json.writeStringField("name", jsonTimer.name());
+            json.writeStringField("type", jsonTimer.type());
             json.writeObjectField(timestampFieldname, jsonTimer.timestampAsDate());
             Timer timer = jsonTimer.value();
             final Snapshot snapshot = timer.getSnapshot();
