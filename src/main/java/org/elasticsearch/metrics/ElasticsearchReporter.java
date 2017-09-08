@@ -22,11 +22,13 @@ import com.codahale.metrics.*;
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
+
 import org.elasticsearch.metrics.percolation.Notifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -350,28 +352,40 @@ public class ElasticsearchReporter extends ScheduledReporter {
      * Execute a percolation request for the specified metric
      */
     private List<String> getPercolationMatches(JsonMetric jsonMetric) throws IOException {
-        HttpURLConnection connection = openConnection("/" + currentIndexName + "/" + jsonMetric.type() + "/_percolate", "POST");
+        HttpURLConnection connection = openConnection("/" + currentIndexName + "/_search", "POST");
         if (connection == null) {
             LOGGER.error("Could not connect to any configured elasticsearch instances for percolation: {}", Arrays.asList(hosts));
             return Collections.emptyList();
         }
 
-        Map<String, Object> data = new HashMap<>(1);
-        data.put("doc", jsonMetric);
-        objectMapper.writeValue(connection.getOutputStream(), data);
+        JsonGenerator json = new JsonFactory().createGenerator(connection.getOutputStream());
+        json.setCodec(objectMapper);
+        json.writeStartObject();
+        json.writeObjectFieldStart("query");
+        json.writeObjectFieldStart("percolate");
+        json.writeStringField("field", "query");
+        json.writeStringField("document_type", jsonMetric.type());
+        json.writeObjectField("document", jsonMetric);
+        json.writeEndObject();
+        json.writeEndObject();
+        json.writeEndObject();
+        json.flush();
+
         closeConnection(connection);
 
         if (connection.getResponseCode() != 200) {
             throw new RuntimeException("Error percolating " + jsonMetric);
         }
 
-        Map<String, Object> input = objectMapper.readValue(connection.getInputStream(), new TypeReference<Map<String, Object>>() {});
         List<String> matches = new ArrayList<>();
-        if (input.containsKey("matches") && input.get("matches") instanceof List) {
-            List<Map<String, String>> foundMatches = (List<Map<String, String>>) input.get("matches");
-            for (Map<String, String> entry : foundMatches) {
-                if (entry.containsKey("_id")) {
-                    matches.add(entry.get("_id"));
+        JsonNode input = objectMapper.readTree(connection.getInputStream());
+        if (input.has("hits")) {
+            JsonNode hits = input.get("hits");
+            if (hits.has("hits") && hits.get("hits").isArray()) {
+                for (JsonNode entry : (ArrayNode) hits.get("hits")) {
+                    if (entry.has("_id")) {
+                        matches.add(entry.get("_id").asText());
+                    }
                 }
             }
         }
@@ -478,7 +492,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
                     LOGGER.error("Error adding metrics template to elasticsearch");
                     return;
                 }
-
+                LOGGER.info("Creating metrics template matching index pattern of {}", index + "*");
                 JsonGenerator json = new JsonFactory().createGenerator(putTemplateConnection.getOutputStream());
                 json.writeStartObject();
                 json.writeStringField("template", index + "*");
@@ -490,8 +504,16 @@ public class ElasticsearchReporter extends ScheduledReporter {
                 json.writeEndObject();
                 json.writeObjectFieldStart("properties");
                 json.writeObjectFieldStart("name");
-                json.writeObjectField("type", "string");
-                json.writeObjectField("index", "not_analyzed");
+                json.writeObjectField("type", "keyword");
+                json.writeEndObject();
+                json.writeEndObject();
+                json.writeEndObject();
+
+                //Percolator - ES 5.0+ changed how percolation queries are handled. Now need to be part of the mapping
+                json.writeObjectFieldStart("queries");
+                json.writeObjectFieldStart("properties");
+                json.writeObjectFieldStart("query");
+                json.writeStringField("type", "percolator");
                 json.writeEndObject();
                 json.writeEndObject();
                 json.writeEndObject();
@@ -502,7 +524,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
 
                 putTemplateConnection.disconnect();
                 if (putTemplateConnection.getResponseCode() != 200) {
-                    LOGGER.error("Error adding metrics template to elasticsearch: {}/{}" + putTemplateConnection.getResponseCode(), putTemplateConnection.getResponseMessage());
+                    LOGGER.error("Error adding metrics template to elasticsearch: {}/{}", putTemplateConnection.getResponseCode(), putTemplateConnection.getResponseMessage());
                 }
             }
             checkedForIndexTemplate = true;

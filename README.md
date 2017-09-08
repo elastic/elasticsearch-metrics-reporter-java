@@ -16,7 +16,8 @@ If you want to see this in action, go to the `samples/` directory and read the r
 
 |   Metrics-elasticsearch-reporter  |    elasticsearch    | Release date |
 |-----------------------------------|---------------------|:------------:|
-| 2.3.0-SNAPSHOT                    | 2.3.0  -> master    |  NONE        |
+| 5.1.1-SNAPSHOT                    | 5.0.0  -> 5.1.x     |  master      |
+| 2.3.0                             | 2.3.0  -> 2.4.x     |  TBD         |
 | 2.2.0                             | 2.2.0  -> 2.2.x     |  2016-02-10  |
 | 2.0                               | 1.0.0  -> 1.7.x     |  2014-02-16  |
 | 1.0                               | 0.90.7 -> 0.90.x    |  2014-02-05  |
@@ -33,7 +34,7 @@ You can simply add a dependency in your `pom.xml` (or whatever dependency resolu
 <dependency>
   <groupId>org.elasticsearch</groupId>
   <artifactId>metrics-elasticsearch-reporter</artifactId>
-  <version>2.2.0</version>
+  <version>2.3.0</version>
 </dependency>
 ```
 
@@ -96,10 +97,25 @@ public class PagerNotifier implements Notifier {
 }
 ```
 
-Add a percolation
+Add a percolation _(elasticsearch < 5.0)_
 
 ```
 curl http://localhost:9200/metrics/.percolator/http-monitor -X PUT -d '{
+  "query" : { 
+    "bool" : { 
+      "must": [
+        { "term": { "name" : "incoming-http-requests" } },
+        { "range": { "m1_rate": { "to" : "10" } } }
+      ]
+    }
+  }
+}'
+```
+
+Add a percolation _(elasticsearch >= 5.0)_
+
+```
+curl http://localhost:9200/metrics/queries/http-monitor -X PUT -d '{
   "query" : { 
     "bool" : { 
       "must": [
