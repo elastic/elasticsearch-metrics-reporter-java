@@ -1,10 +1,8 @@
 # Metrics Elasticsearch Reporter
 
-## Status
-
 ![Project unmaintained](https://img.shields.io/badge/project-unmaintained-red.svg)
 
-This project is no longer maintained. If you want to maintain it, please fork and we will link to your new repository.
+**This project is no longer maintained. If you want to maintain it, please fork and we will link to your new repository.**
 
 ## Introduction
 
