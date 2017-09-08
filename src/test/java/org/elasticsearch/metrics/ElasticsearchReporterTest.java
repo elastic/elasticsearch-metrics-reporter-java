@@ -30,7 +30,9 @@ import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
 import org.elasticsearch.action.admin.cluster.node.stats.NodesStatsResponse;
 import org.elasticsearch.action.admin.cluster.state.ClusterStateResponse;
+import org.elasticsearch.action.admin.cluster.storedscripts.GetStoredScriptResponse;
 import org.elasticsearch.action.admin.indices.template.get.GetIndexTemplatesResponse;
+import org.elasticsearch.action.ingest.GetPipelineResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.cluster.metadata.IndexTemplateMetaData;
@@ -41,40 +43,56 @@ import org.elasticsearch.http.HttpServerTransport;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.metrics.percolation.Notifier;
-import org.elasticsearch.node.Node;
+import org.elasticsearch.percolator.PercolatorPlugin;
+import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.test.ESIntegTestCase;
+import org.elasticsearch.transport.Netty4Plugin;
 import org.joda.time.format.ISODateTimeFormat;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.codahale.metrics.MetricRegistry.name;
-import static org.elasticsearch.common.settings.Settings.settingsBuilder;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 
+@ESIntegTestCase.ClusterScope(scope = ESIntegTestCase.Scope.TEST)
 public class ElasticsearchReporterTest extends ESIntegTestCase {
 
     private ElasticsearchReporter elasticsearchReporter;
     private MetricRegistry registry = new MetricRegistry();
-    private String index = randomAsciiOfLength(12).toLowerCase();
+    private String index = randomAlphaOfLength(12).toLowerCase();
     private String indexWithDate = String.format("%s-%s-%02d", index, Calendar.getInstance().get(Calendar.YEAR), Calendar.getInstance().get(Calendar.MONTH) + 1);
-    private String prefix = randomAsciiOfLength(12).toLowerCase();
+    private String prefix = randomAlphaOfLength(12).toLowerCase();
 
     @Override
     protected Settings nodeSettings(int nodeOrdinal) {
-        return settingsBuilder()
+        return Settings.builder()
                 .put(super.nodeSettings(nodeOrdinal))
-                .put(Node.HTTP_ENABLED, true)
+                .put("http.type", "netty4")
+                .put("http.enabled", "true")
+                .put("http.port", "9200-9300")
                 .build();
+    }
+
+    @Override
+    protected Collection<Class<? extends Plugin>> nodePlugins() {
+        List<Class<? extends Plugin>> plugins = new ArrayList<>(super.nodePlugins());
+        plugins.add(Netty4Plugin.class);
+        plugins.add(PercolatorPlugin.class);
+        return plugins;
     }
 
     @Before
@@ -110,8 +128,8 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
         assertThat(indexMetaData.getMappings().containsKey("counter"), is(true));
         Map<String, Object> properties = getAsMap(indexMetaData.mapping("counter").sourceAsMap(), "properties");
         Map<String, Object> mapping = getAsMap(properties, "name");
-        assertThat(mapping, hasKey("index"));
-        assertThat(mapping.get("index").toString(), is("not_analyzed"));
+        assertThat(mapping, hasKey("type"));
+        assertThat(mapping.get("type").toString(), is("keyword"));
     }
 
     @SuppressWarnings("unchecked")
@@ -294,8 +312,8 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
                                 .must(QueryBuilders.rangeQuery("count").gte(20))
                                 .must(QueryBuilders.termQuery("name", prefix + ".foo"))
                 );
-        String json = String.format("{ \"query\" : %s }", queryBuilder.buildAsBytes().toUtf8());
-        client().prepareIndex(indexWithDate, ".percolator", "myName").setRefresh(true).setSource(json).execute().actionGet();
+        String json = String.format("{ \"query\" : %s }", queryBuilder);
+        client().prepareIndex(indexWithDate, "queries", "myName").setSource(json).execute().actionGet();
 
         evictions.inc(1);
         reportAndRefresh();
@@ -339,6 +357,48 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
         long connectionsAfterReporting = getTotalHttpConnections();
 
         assertThat(connectionsAfterReporting, is(connectionsBeforeReporting));
+    }
+
+    @Test
+    public void testThatIndexTemplateCanBeConfigured() throws Exception {
+        // Delete the template created in setup
+        client().admin().indices().prepareDeleteTemplate("metrics_template").get();
+        elasticsearchReporter = createElasticsearchReporterBuilder().templateResource("/org/elasticsearch/metrics/metrics-template.json").build();
+
+        GetIndexTemplatesResponse response = client().admin().indices().prepareGetTemplates("metrics_template").get();
+
+        assertThat(response.getIndexTemplates(), hasSize(1));
+        IndexTemplateMetaData templateData = response.getIndexTemplates().get(0);
+        assertThat(templateData.order(), is(0));
+        assertThat(templateData.getTemplate(), is(index + "*"));
+    }
+
+    @Test
+    @Ignore
+    public void testThatPipelineCanBeConfigured() throws Exception {
+        // Delete the template created in setup, so the resources are loaded
+        client().admin().indices().prepareDeleteTemplate("metrics_template").get();
+        elasticsearchReporter = createElasticsearchReporterBuilder().pipelineResource("/org/elasticsearch/metrics/metrics-pipeline.json").build();
+
+        GetPipelineResponse response = client().admin().cluster().prepareGetPipeline("metrics-pipeline").get();
+        System.out.println(response.pipelines());
+        assertThat(response.isFound(), is(true));
+    }
+
+    @Test
+    @Ignore
+    public void testThatScriptsCanBeConfigured() throws Exception {
+        // Delete the template created in setup, so the resources are loaded
+        client().admin().indices().prepareDeleteTemplate("metrics_template").get();
+
+        List<String> scripts = new ArrayList<>();
+        scripts.add("/org/elasticsearch/metrics/metrics-ingest.painless");
+
+        elasticsearchReporter = createElasticsearchReporterBuilder().scriptResources(scripts).build();
+
+        GetStoredScriptResponse response = client().admin().cluster().prepareGetStoredScript("painless", "metrics-ingest").get();
+        System.out.println(response.getSource());
+        assertThat(response.getSource(), is(notNullValue()));
     }
 
     private long getTotalHttpConnections() {
