@@ -107,8 +107,8 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
 
         assertThat(clusterStateResponse.getState().getMetaData().getIndices().containsKey(indexWithDate), is(true));
         IndexMetaData indexMetaData = clusterStateResponse.getState().getMetaData().getIndices().get(indexWithDate);
-        assertThat(indexMetaData.getMappings().containsKey("counter"), is(true));
-        Map<String, Object> properties = getAsMap(indexMetaData.mapping("counter").sourceAsMap(), "properties");
+        assertThat(indexMetaData.getMappings().containsKey("metrics"), is(true));
+        Map<String, Object> properties = getAsMap(indexMetaData.mapping("metrics").sourceAsMap(), "properties");
         Map<String, Object> mapping = getAsMap(properties, "name");
         assertThat(mapping, hasKey("index"));
         assertThat(mapping.get("index").toString(), is("not_analyzed"));
@@ -142,7 +142,7 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
         registry.counter(name("test", "cache-evictions")).inc();
         reportAndRefresh();
 
-        SearchResponse searchResponse = client().prepareSearch(index).setTypes("counter").execute().actionGet();
+        SearchResponse searchResponse = client().prepareSearch(index). setTypes("metrics").execute().actionGet();
         assertThat(searchResponse.getHits().totalHits(), is(1L));
     }
 
@@ -152,7 +152,7 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
         evictions.inc(25);
         reportAndRefresh();
 
-        SearchResponse searchResponse = client().prepareSearch(indexWithDate).setTypes("counter").execute().actionGet();
+        SearchResponse searchResponse = client().prepareSearch(indexWithDate). setTypes("metrics").execute().actionGet();
         assertThat(searchResponse.getHits().totalHits(), is(1L));
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
@@ -169,7 +169,7 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
         histogram.update(40);
         reportAndRefresh();
 
-        SearchResponse searchResponse = client().prepareSearch(indexWithDate).setTypes("histogram").execute().actionGet();
+        SearchResponse searchResponse = client().prepareSearch(indexWithDate). setTypes("metrics").execute().actionGet();
         assertThat(searchResponse.getHits().totalHits(), is(1L));
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
@@ -189,7 +189,7 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
         meter.mark(20);
         reportAndRefresh();
 
-        SearchResponse searchResponse = client().prepareSearch(indexWithDate).setTypes("meter").execute().actionGet();
+        SearchResponse searchResponse = client().prepareSearch(indexWithDate). setTypes("metrics").execute().actionGet();
         assertThat(searchResponse.getHits().totalHits(), is(1L));
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
@@ -207,7 +207,7 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
         timerContext.stop();
         reportAndRefresh();
 
-        SearchResponse searchResponse = client().prepareSearch(indexWithDate).setTypes("timer").execute().actionGet();
+        SearchResponse searchResponse = client().prepareSearch(indexWithDate). setTypes("metrics").execute().actionGet();
         assertThat(searchResponse.getHits().totalHits(), is(1L));
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
@@ -227,7 +227,7 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
         });
         reportAndRefresh();
 
-        SearchResponse searchResponse = client().prepareSearch(indexWithDate).setTypes("gauge").execute().actionGet();
+        SearchResponse searchResponse = client().prepareSearch(indexWithDate). setTypes("metrics").execute().actionGet();
         assertThat(searchResponse.getHits().totalHits(), is(1L));
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
@@ -244,7 +244,7 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
         registry.counter(name("test", "cache-evictions")).inc();
         reportAndRefresh();
 
-        SearchResponse searchResponse = client().prepareSearch(indexWithDate).setTypes("counter").execute().actionGet();
+        SearchResponse searchResponse = client().prepareSearch(indexWithDate). setTypes("metrics").execute().actionGet();
         assertThat(searchResponse.getHits().totalHits(), is(1L));
     }
 
@@ -264,7 +264,7 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
         }
         reportAndRefresh();
 
-        SearchResponse searchResponse = client().prepareSearch(indexWithDate).setTypes("counter").execute().actionGet();
+        SearchResponse searchResponse = client().prepareSearch(indexWithDate). setTypes("metrics").execute().actionGet();
         assertThat(searchResponse.getHits().totalHits(), is(2020L));
     }
 
@@ -325,7 +325,7 @@ public class ElasticsearchReporterTest extends ESIntegTestCase {
         registry.counter(name("myMetrics", "cache-evictions")).inc();
         reportAndRefresh();
 
-        SearchResponse searchResponse = client().prepareSearch(indexWithDate).setTypes("counter").execute().actionGet();
+        SearchResponse searchResponse = client().prepareSearch(indexWithDate). setTypes("metrics").execute().actionGet();
         assertThat(searchResponse.getHits().totalHits(), is(1L));
 
         Map<String, Object> hit = searchResponse.getHits().getAt(0).sourceAsMap();
