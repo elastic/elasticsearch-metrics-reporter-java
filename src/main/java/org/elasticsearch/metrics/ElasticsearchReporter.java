@@ -439,6 +439,7 @@ public class ElasticsearchReporter extends ScheduledReporter {
                 URL templateUrl = new URL("http://" + host  + uri);
                 HttpURLConnection connection = ( HttpURLConnection ) templateUrl.openConnection();
                 connection.setRequestMethod(method);
+                connection.setRequestProperty("Content-Type", "application/json");
                 connection.setConnectTimeout(timeout);
                 connection.setUseCaches(false);
                 if (method.equalsIgnoreCase("POST") || method.equalsIgnoreCase("PUT")) {
